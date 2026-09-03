@@ -6,6 +6,7 @@ use App\Enums\EmploymentType;
 use App\Enums\IncomeTaxCategory;
 use App\Enums\TransportationTaxType;
 use App\Models\LateNightRateSetting;
+use App\Models\Shift;
 use App\Models\Staff;
 use App\Models\StaffIncomeTaxSetting;
 use App\Models\StaffStoreAssignment;
@@ -14,10 +15,15 @@ use App\Models\StaffWageRate;
 use App\Models\Store;
 use App\Models\StoreHoliday;
 use App\Models\User;
+use App\Services\StaffInitialImportService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
+/** Covers MST-001 through MST-017 and IMP-001 through IMP-006. */
 class MasterDataTest extends TestCase
 {
     use RefreshDatabase;
@@ -326,5 +332,274 @@ class MasterDataTest extends TestCase
                 'effective_to' => '2026-06-30',
             ])
             ->assertSessionHasErrors('effective_to');
+    }
+
+    public function test_store_holiday_is_rejected_when_work_shift_exists(): void
+    {
+        $admin = User::factory()->create();
+        $store = Store::factory()->create();
+        $staff = Staff::factory()->create(['hired_at' => null]);
+        Shift::query()->create([
+            'staff_id' => $staff->id,
+            'store_id' => $store->id,
+            'shift_date' => '2026-09-15',
+            'shift_type' => 'time',
+            'start_time' => '19:00',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('stores.holidays.store', $store), ['holiday_date' => '2026-09-15'])
+            ->assertSessionHasErrors('holiday_date');
+
+        $this->assertDatabaseMissing('store_holidays', [
+            'store_id' => $store->id,
+            'holiday_date' => '2026-09-15',
+        ]);
+    }
+
+    public function test_staff_period_cannot_be_changed_to_exclude_existing_shift(): void
+    {
+        $admin = User::factory()->create();
+        $staff = Staff::factory()->partTime()->create(['hired_at' => null, 'retired_at' => null]);
+        Shift::query()->create([
+            'staff_id' => $staff->id,
+            'store_id' => null,
+            'shift_date' => '2026-09-15',
+            'shift_type' => 'off',
+            'start_time' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('staffs.update', $staff), [
+                'name' => $staff->name,
+                'employment_type' => 'part_time',
+                'hired_at' => null,
+                'retired_at' => '2026-09-14',
+            ])
+            ->assertSessionHasErrors('hired_at');
+
+        $this->assertNull($staff->fresh()->retired_at);
+    }
+
+    public function test_assignment_period_cannot_be_changed_to_exclude_existing_shift(): void
+    {
+        $admin = User::factory()->create();
+        $store = Store::factory()->create();
+        $staff = Staff::factory()->partTime()->create(['hired_at' => null]);
+        $assignment = StaffStoreAssignment::query()->create([
+            'staff_id' => $staff->id,
+            'store_id' => $store->id,
+            'effective_from' => '2026-01-01',
+            'effective_to' => null,
+        ]);
+        Shift::query()->create([
+            'staff_id' => $staff->id,
+            'store_id' => $store->id,
+            'shift_date' => '2026-09-15',
+            'shift_type' => 'time',
+            'start_time' => '19:00',
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('staffs.assignments.update', [$staff, $assignment]), [
+                'store_id' => $store->id,
+                'effective_from' => '2026-01-01',
+                'effective_to' => '2026-09-14',
+            ])
+            ->assertSessionHasErrors('effective_from');
+
+        $this->assertNull($assignment->fresh()->effective_to);
+    }
+
+    public function test_inactive_store_is_rejected_for_new_history_but_existing_history_can_be_updated(): void
+    {
+        $admin = User::factory()->create();
+        $staff = Staff::factory()->partTime()->create();
+        $store = Store::factory()->create(['is_active' => false]);
+        $assignment = StaffStoreAssignment::query()->create([
+            'staff_id' => $staff->id,
+            'store_id' => $store->id,
+            'effective_from' => '2026-01-01',
+            'effective_to' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('staffs.assignments.store', $staff), [
+                'store_id' => $store->id,
+                'effective_from' => '2027-01-01',
+                'effective_to' => null,
+            ])
+            ->assertSessionHasErrors('store_id');
+
+        $this->actingAs($admin)
+            ->post(route('staffs.transportation-fees.store', $staff), [
+                'store_id' => $store->id,
+                'amount_per_day' => 500,
+                'tax_type' => 'non_taxable',
+                'effective_from' => '2026-01-01',
+                'effective_to' => null,
+            ])
+            ->assertSessionHasErrors('store_id');
+
+        $this->actingAs($admin)
+            ->put(route('staffs.assignments.update', [$staff, $assignment]), [
+                'store_id' => $store->id,
+                'effective_from' => '2026-01-01',
+                'effective_to' => '2026-12-31',
+            ])
+            ->assertSessionHasNoErrors();
+    }
+
+    public function test_part_time_with_payroll_histories_cannot_be_changed_to_employee(): void
+    {
+        $admin = User::factory()->create();
+        $staff = Staff::factory()->partTime()->create();
+        StaffWageRate::query()->create([
+            'staff_id' => $staff->id,
+            'hourly_wage' => 1300,
+            'effective_from' => '2026-01-01',
+            'effective_to' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('staffs.update', $staff), [
+                'name' => $staff->name,
+                'employment_type' => 'employee',
+                'hired_at' => null,
+                'retired_at' => null,
+            ])
+            ->assertSessionHasErrors('employment_type');
+
+        $this->assertSame(EmploymentType::PartTime, $staff->fresh()->employment_type);
+    }
+
+    public function test_staff_initial_import_creates_staff_and_period_histories_from_csv(): void
+    {
+        $admin = User::factory()->create();
+        $store = Store::factory()->create(['name' => '46']);
+        $headers = implode(',', array_values(StaffInitialImportService::HEADERS));
+        $row = implode(',', [
+            'PT001', '山田 花子', 'アルバイト', '2026-04-01', '', '46', '2026-04-01', '',
+            '1300', '2026-04-01', '', '500', '非課税', '2026-04-01', '', '甲欄', '1', '2026-04-01', '',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('staffs.csv', "{$headers}\n{$row}\n");
+
+        $this->actingAs($admin)
+            ->post(route('staffs.import.store'), ['file' => $file])
+            ->assertRedirect(route('staffs.index'))
+            ->assertSessionHasNoErrors();
+
+        $staff = Staff::query()->where('name', '山田 花子')->firstOrFail();
+        $this->assertDatabaseHas('staff_store_assignments', ['staff_id' => $staff->id, 'store_id' => $store->id]);
+        $this->assertDatabaseHas('staff_wage_rates', ['staff_id' => $staff->id, 'hourly_wage' => 1300]);
+        $this->assertDatabaseHas('staff_store_transportation_fees', [
+            'staff_id' => $staff->id,
+            'amount_per_day' => 500,
+            'tax_type' => 'non_taxable',
+        ]);
+        $this->assertDatabaseHas('staff_income_tax_settings', [
+            'staff_id' => $staff->id,
+            'tax_category' => 'ko',
+            'dependent_count' => 1,
+        ]);
+    }
+
+    public function test_staff_initial_import_is_all_or_nothing_when_a_row_is_invalid(): void
+    {
+        $admin = User::factory()->create();
+        $headers = implode(',', array_values(StaffInitialImportService::HEADERS));
+        $valid = implode(',', ['PT001', '山田 花子', 'アルバイト']);
+        $invalid = implode(',', ['PT002', '佐藤 太郎', '不明']);
+        $file = UploadedFile::fake()->createWithContent('staffs.csv', "{$headers}\n{$valid}\n{$invalid}\n");
+
+        $this->actingAs($admin)
+            ->post(route('staffs.import.store'), ['file' => $file])
+            ->assertSessionHasErrors('file');
+
+        $this->assertDatabaseCount('staffs', 0);
+    }
+
+    public function test_staff_initial_import_reports_the_original_row_number_after_blank_rows(): void
+    {
+        $admin = User::factory()->create();
+        $headers = implode(',', array_values(StaffInitialImportService::HEADERS));
+        $valid = implode(',', ['PT001', '山田 花子', 'アルバイト']);
+        $invalid = implode(',', ['PT002', '佐藤 太郎', '不明']);
+        $file = UploadedFile::fake()->createWithContent(
+            'staffs.csv',
+            "{$headers}\n{$valid}\n\n{$invalid}\n",
+        );
+
+        $this->actingAs($admin)
+            ->post(route('staffs.import.store'), ['file' => $file])
+            ->assertSessionHasErrors([
+                'file' => '4行目: 雇用区分は「社員」または「アルバイト」を指定してください。',
+            ]);
+
+        $this->assertDatabaseCount('staffs', 0);
+    }
+
+    public function test_staff_initial_import_accepts_cp932_csv(): void
+    {
+        $admin = User::factory()->create();
+        $headers = implode(',', array_values(StaffInitialImportService::HEADERS));
+        $row = implode(',', ['PT001', '山田 花子', 'アルバイト']);
+        $contents = mb_convert_encoding("{$headers}\n{$row}\n", 'CP932', 'UTF-8');
+        $file = UploadedFile::fake()->createWithContent('staffs.csv', $contents);
+
+        $this->actingAs($admin)
+            ->post(route('staffs.import.store'), ['file' => $file])
+            ->assertRedirect(route('staffs.index'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('staffs', [
+            'name' => '山田 花子',
+            'employment_type' => 'part_time',
+        ]);
+    }
+
+    public function test_staff_initial_import_accepts_xlsx(): void
+    {
+        $admin = User::factory()->create();
+        $spreadsheet = new Spreadsheet;
+        $spreadsheet->getActiveSheet()->fromArray([
+            array_values(StaffInitialImportService::HEADERS),
+            ['EMP001', '佐藤 太郎', '社員', '2026-04-01'],
+        ]);
+        $path = tempnam(sys_get_temp_dir(), 'staff-import-').'.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+        $spreadsheet->disconnectWorksheets();
+
+        try {
+            $file = new UploadedFile(
+                $path,
+                'staffs.xlsx',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                null,
+                true,
+            );
+            $this->actingAs($admin)
+                ->post(route('staffs.import.store'), ['file' => $file])
+                ->assertRedirect(route('staffs.index'))
+                ->assertSessionHasNoErrors();
+        } finally {
+            unlink($path);
+        }
+
+        $this->assertDatabaseHas('staffs', [
+            'name' => '佐藤 太郎',
+            'employment_type' => 'employee',
+            'hired_at' => '2026-04-01 00:00:00',
+        ]);
+    }
+
+    public function test_staff_initial_import_template_can_be_downloaded(): void
+    {
+        $admin = User::factory()->create();
+
+        $this->actingAs($admin)
+            ->get(route('staffs.import.template'))
+            ->assertOk()
+            ->assertDownload('staff-initial-import-template.xlsx');
     }
 }

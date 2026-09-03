@@ -10,12 +10,14 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
         libicu-dev \
+        libpng-dev \
         libonig-dev \
         libsqlite3-dev \
         libzip-dev \
         unzip \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
+        gd \
         intl \
         mbstring \
         opcache \

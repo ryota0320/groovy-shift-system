@@ -1,12 +1,16 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Master\LateNightRateSettingController;
 use App\Http\Controllers\Master\StaffController;
 use App\Http\Controllers\Master\StaffHistoryController;
+use App\Http\Controllers\Master\StaffInitialImportController;
 use App\Http\Controllers\Master\StaffUserController;
 use App\Http\Controllers\Master\StoreController;
 use App\Http\Controllers\Master\StoreHolidayController;
+use App\Http\Controllers\SelectedStoreController;
+use App\Http\Controllers\ShiftController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => auth()->check()
@@ -14,7 +18,7 @@ Route::get('/', fn () => auth()->check()
     : to_route('login'))->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::get('dashboard', DashboardController::class)->name('dashboard');
 
     Route::middleware('role:'.UserRole::Admin->value.','.UserRole::Employee->value)->group(function () {
         Route::resource('stores', StoreController::class)->only(['index', 'store', 'edit', 'update']);
@@ -24,6 +28,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('stores.holidays.destroy');
 
         Route::resource('staffs', StaffController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+        Route::get('staffs-import', [StaffInitialImportController::class, 'index'])
+            ->name('staffs.import.index');
+        Route::post('staffs-import', [StaffInitialImportController::class, 'store'])
+            ->name('staffs.import.store');
+        Route::get('staffs-import/template', [StaffInitialImportController::class, 'template'])
+            ->name('staffs.import.template');
         Route::post('staffs/{staff}/account', [StaffUserController::class, 'store'])
             ->name('staffs.account.store');
         Route::delete('staffs/{staff}/account', [StaffUserController::class, 'destroy'])
@@ -52,6 +62,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('late-night-rates.store');
         Route::put('settings/late-night-rates/{lateNightRate}', [LateNightRateSettingController::class, 'update'])
             ->name('late-night-rates.update');
+
+        Route::get('shifts/monthly', [ShiftController::class, 'monthly'])
+            ->name('shifts.monthly');
+        Route::get('shifts/daily', [ShiftController::class, 'daily'])
+            ->name('shifts.daily');
+        Route::post('shifts', [ShiftController::class, 'store'])
+            ->name('shifts.store');
+        Route::put('shifts/cell', [ShiftController::class, 'saveCell'])
+            ->name('shifts.cell.save');
+        Route::put('shifts/daily', [ShiftController::class, 'saveDaily'])
+            ->name('shifts.daily.save');
+
+        Route::put('selected-store', [SelectedStoreController::class, 'update'])
+            ->name('selected-store.update');
     });
 });
 

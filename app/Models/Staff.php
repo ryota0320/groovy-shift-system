@@ -57,6 +57,12 @@ class Staff extends Model
         return $this->hasMany(StaffIncomeTaxSetting::class);
     }
 
+    /** @return HasMany<Shift, $this> */
+    public function shifts(): HasMany
+    {
+        return $this->hasMany(Shift::class);
+    }
+
     public function isEmployedOn(DateTimeInterface|string $date): bool
     {
         $targetDate = Carbon::parse($date)->startOfDay();

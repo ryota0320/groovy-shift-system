@@ -9,10 +9,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Master\StaffRequest;
 use App\Models\Staff;
 use App\Models\Store;
+use App\Services\ShiftMasterDataGuard;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -20,6 +22,8 @@ use Inertia\Response;
 
 class StaffController extends Controller
 {
+    public function __construct(private ShiftMasterDataGuard $shiftGuard) {}
+
     public function index(Request $request): Response
     {
         $filters = $request->validate([
@@ -181,13 +185,30 @@ class StaffController extends Controller
     {
         $data = $request->validated();
 
-        if ($data['employment_type'] === EmploymentType::PartTime->value && $staff->user()->exists()) {
-            throw ValidationException::withMessages([
-                'employment_type' => 'ログインアカウントがあるスタッフをアルバイトへ変更できません。',
-            ]);
-        }
+        DB::transaction(function () use ($staff, $data): void {
+            $staff = Staff::query()->lockForUpdate()->findOrFail($staff->id);
 
-        $staff->update($data);
+            if ($data['employment_type'] === EmploymentType::PartTime->value && $staff->user()->exists()) {
+                throw ValidationException::withMessages([
+                    'employment_type' => 'ログインアカウントがあるスタッフをアルバイトへ変更できません。',
+                ]);
+            }
+
+            if ($staff->employment_type === EmploymentType::PartTime
+                && $data['employment_type'] === EmploymentType::Employee->value
+                && ($staff->wageRates()->exists() || $staff->incomeTaxSettings()->exists())) {
+                throw ValidationException::withMessages([
+                    'employment_type' => '時給または所得税設定の履歴があるアルバイトを社員へ変更できません。',
+                ]);
+            }
+
+            $this->shiftGuard->ensureStaffPeriodCoversShifts(
+                $staff,
+                $data['hired_at'] ?? null,
+                $data['retired_at'] ?? null,
+            );
+            $staff->update($data);
+        });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'スタッフ情報を更新しました。']);
 

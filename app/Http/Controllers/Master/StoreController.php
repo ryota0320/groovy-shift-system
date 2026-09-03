@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Master\StoreRequest;
 use App\Models\Store;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -57,7 +58,12 @@ class StoreController extends Controller
 
     public function update(StoreRequest $request, Store $store): RedirectResponse
     {
-        $store->update($request->validated());
+        $data = $request->validated();
+
+        DB::transaction(function () use ($store, $data): void {
+            $store = Store::query()->lockForUpdate()->findOrFail($store->id);
+            $store->update($data);
+        });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => '店舗情報を更新しました。']);
 

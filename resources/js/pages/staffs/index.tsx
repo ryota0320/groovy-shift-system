@@ -1,5 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { Plus, Search, Store as StoreIcon } from 'lucide-react';
+import { FileUp, Plus, Search, Store as StoreIcon } from 'lucide-react';
 import MasterPageHeader from '@/components/master-page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,12 +40,20 @@ export default function StaffIndex({
                     title="スタッフ管理"
                     description="対象日時点の在籍、所属店舗、時給を確認できます。"
                     actions={
-                        <Button asChild>
-                            <Link href="/staffs/create">
-                                <Plus />
-                                スタッフを追加
-                            </Link>
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" asChild>
+                                <Link href="/staffs-import">
+                                    <FileUp />
+                                    初期移行
+                                </Link>
+                            </Button>
+                            <Button asChild>
+                                <Link href="/staffs/create">
+                                    <Plus />
+                                    スタッフを追加
+                                </Link>
+                            </Button>
+                        </div>
                     }
                 />
 

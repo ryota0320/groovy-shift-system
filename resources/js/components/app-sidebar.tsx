@@ -1,5 +1,11 @@
 import { Link } from '@inertiajs/react';
-import { Building2, LayoutGrid, MoonStar, UsersRound } from 'lucide-react';
+import {
+    Building2,
+    CalendarDays,
+    LayoutGrid,
+    MoonStar,
+    UsersRound,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -30,6 +36,11 @@ const mainNavItems: NavItem[] = [
         title: 'スタッフ',
         href: '/staffs',
         icon: UsersRound,
+    },
+    {
+        title: 'シフト',
+        href: '/shifts/monthly',
+        icon: CalendarDays,
     },
     {
         title: '深夜加算設定',

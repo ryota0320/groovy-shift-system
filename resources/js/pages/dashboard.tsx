@@ -1,81 +1,188 @@
-import { Head } from '@inertiajs/react';
-import { CalendarDays, Clock3, Store, UsersRound } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import {
+    ArrowRight,
+    CalendarDays,
+    Clock3,
+    Store,
+    UsersRound,
+} from 'lucide-react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
+import type { StoreOption } from '@/types';
 
-const cards = [
-    {
-        title: '本日のシフト',
-        value: '準備中',
-        description: 'Phase 2で実装します',
-        icon: UsersRound,
-    },
-    {
-        title: '勤怠未入力',
-        value: '準備中',
-        description: 'Phase 3で実装します',
-        icon: Clock3,
-    },
-    {
-        title: '選択店舗',
-        value: '未選択',
-        description: 'Phase 1で店舗を登録します',
-        icon: Store,
-    },
-];
+type Props = {
+    stores: StoreOption[];
+    selected_store: StoreOption | null;
+    today: string;
+    today_label: string;
+    today_shift_count: number;
+};
 
-export default function Dashboard() {
+export default function Dashboard({
+    stores,
+    selected_store: selectedStore,
+    today,
+    today_label: todayLabel,
+    today_shift_count: todayShiftCount,
+}: Props) {
+    const [selectingStore, setSelectingStore] = useState(false);
+
+    const selectStore = (storeId: string) => {
+        setSelectingStore(true);
+        router.put(
+            '/selected-store',
+            { store_id: Number(storeId) },
+            {
+                preserveScroll: true,
+                onFinish: () => setSelectingStore(false),
+            },
+        );
+    };
+
     return (
         <>
             <Head title="ダッシュボード" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
-                <div>
+                <header>
                     <p className="text-muted-foreground text-sm">
                         株式会社Groovy
                     </p>
                     <h1 className="text-2xl font-semibold tracking-tight">
                         ダッシュボード
                     </h1>
-                </div>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                        {todayLabel}
+                    </p>
+                </header>
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {cards.map((card) => (
-                        <section
-                            key={card.title}
-                            className="border-border bg-card rounded-xl border p-5 shadow-sm"
-                        >
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-muted-foreground text-sm font-medium">
-                                        {card.title}
-                                    </p>
-                                    <p className="mt-2 text-2xl font-semibold">
-                                        {card.value}
-                                    </p>
-                                </div>
-                                <div className="bg-primary/10 text-primary rounded-lg p-2.5">
-                                    <card.icon className="size-5" />
-                                </div>
-                            </div>
+                    <DashboardCard title="本日のシフト" icon={UsersRound}>
+                        <p className="mt-2 text-2xl font-semibold tabular-nums">
+                            {selectedStore ? `${todayShiftCount}人` : '—'}
+                        </p>
+                        {selectedStore ? (
+                            <Button
+                                variant="link"
+                                className="mt-2 h-auto p-0"
+                                asChild
+                            >
+                                <Link
+                                    href={`/shifts/daily?store_id=${selectedStore.id}&date=${today}`}
+                                >
+                                    日別シフトを確認
+                                    <ArrowRight />
+                                </Link>
+                            </Button>
+                        ) : (
                             <p className="text-muted-foreground mt-4 text-sm">
-                                {card.description}
+                                利用できる店舗がありません。
                             </p>
-                        </section>
-                    ))}
+                        )}
+                    </DashboardCard>
+
+                    <DashboardCard title="勤怠未入力" icon={Clock3}>
+                        <p className="mt-2 text-2xl font-semibold">準備中</p>
+                        <p className="text-muted-foreground mt-4 text-sm">
+                            Phase 3で実装します
+                        </p>
+                    </DashboardCard>
+
+                    <DashboardCard title="選択店舗" icon={Store}>
+                        {stores.length === 0 ? (
+                            <>
+                                <p className="mt-2 text-2xl font-semibold">
+                                    未選択
+                                </p>
+                                <p className="text-muted-foreground mt-4 text-sm">
+                                    有効な店舗がありません。
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <label
+                                    htmlFor="dashboard-store"
+                                    className="sr-only"
+                                >
+                                    選択店舗
+                                </label>
+                                <select
+                                    id="dashboard-store"
+                                    aria-label="選択店舗"
+                                    value={selectedStore?.id ?? ''}
+                                    disabled={selectingStore}
+                                    onChange={(event) =>
+                                        selectStore(event.target.value)
+                                    }
+                                    className="border-input bg-background mt-3 h-10 w-full rounded-md border px-3 text-sm font-medium disabled:opacity-60"
+                                >
+                                    {stores.map((store) => (
+                                        <option key={store.id} value={store.id}>
+                                            {store.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-muted-foreground mt-3 text-sm">
+                                    シフト画面の初期店舗にも反映されます。
+                                </p>
+                            </>
+                        )}
+                    </DashboardCard>
                 </div>
 
                 <section className="border-border bg-card rounded-xl border p-5 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <CalendarDays className="text-primary size-5" />
-                        <div>
-                            <h2 className="font-semibold">システム基盤</h2>
-                            <p className="text-muted-foreground text-sm">
-                                Docker環境と認証基盤が利用できます。業務機能はロードマップ順に追加します。
-                            </p>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                            <CalendarDays className="text-primary mt-0.5 size-5 shrink-0" />
+                            <div>
+                                <h2 className="font-semibold">シフト管理</h2>
+                                <p className="text-muted-foreground mt-1 text-sm">
+                                    {selectedStore
+                                        ? `${selectedStore.name}の月間シフトを確認・編集できます。`
+                                        : '店舗を登録するとシフト管理を開始できます。'}
+                                </p>
+                            </div>
                         </div>
+                        {selectedStore && (
+                            <Button asChild>
+                                <Link
+                                    href={`/shifts/monthly?store_id=${selectedStore.id}&month=${today.slice(0, 7)}`}
+                                >
+                                    月間シフトを開く
+                                    <ArrowRight />
+                                </Link>
+                            </Button>
+                        )}
                     </div>
                 </section>
             </div>
         </>
+    );
+}
+
+function DashboardCard({
+    title,
+    icon: Icon,
+    children,
+}: {
+    title: string;
+    icon: typeof UsersRound;
+    children: React.ReactNode;
+}) {
+    return (
+        <section className="border-border bg-card rounded-xl border p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                    <p className="text-muted-foreground text-sm font-medium">
+                        {title}
+                    </p>
+                    {children}
+                </div>
+                <div className="bg-primary/10 text-primary shrink-0 rounded-lg p-2.5">
+                    <Icon className="size-5" />
+                </div>
+            </div>
+        </section>
     );
 }
 

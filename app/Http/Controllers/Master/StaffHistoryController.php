@@ -14,6 +14,7 @@ use App\Models\StaffStoreAssignment;
 use App\Models\StaffStoreTransportationFee;
 use App\Models\StaffWageRate;
 use App\Services\EffectivePeriodService;
+use App\Services\ShiftMasterDataGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -21,7 +22,10 @@ use Inertia\Inertia;
 
 class StaffHistoryController extends Controller
 {
-    public function __construct(private EffectivePeriodService $periods) {}
+    public function __construct(
+        private EffectivePeriodService $periods,
+        private ShiftMasterDataGuard $shiftGuard,
+    ) {}
 
     public function storeAssignment(
         StaffStoreAssignmentRequest $request,
@@ -54,6 +58,13 @@ class StaffHistoryController extends Controller
 
         DB::transaction(function () use ($staff, $assignment, $data): void {
             Staff::query()->lockForUpdate()->findOrFail($staff->id);
+            $this->shiftGuard->ensureAssignmentPeriodCoversShifts(
+                $staff,
+                $assignment,
+                (int) $data['store_id'],
+                $data['effective_from'],
+                $data['effective_to'] ?? null,
+            );
             $this->periods->ensureNoOverlap(
                 StaffStoreAssignment::query()
                     ->where('staff_id', $staff->id)

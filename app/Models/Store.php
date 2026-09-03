@@ -38,6 +38,12 @@ class Store extends Model
         return $this->hasMany(StaffStoreTransportationFee::class);
     }
 
+    /** @return HasMany<Shift, $this> */
+    public function shifts(): HasMany
+    {
+        return $this->hasMany(Shift::class);
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {

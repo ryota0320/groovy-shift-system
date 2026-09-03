@@ -15,6 +15,7 @@ import type {
     StaffWageRate,
     StoreOption,
 } from '@/types';
+import { selectableHistoryStores } from '@/lib/master-options';
 
 export default function StaffHistorySections({
     staff,
@@ -180,11 +181,18 @@ function StoreSelect({
     id,
     stores,
     defaultValue,
+    allowInactiveStoreId,
 }: {
     id: string;
     stores: StoreOption[];
     defaultValue?: number;
+    allowInactiveStoreId?: number;
 }) {
+    const selectableStores = selectableHistoryStores(
+        stores,
+        allowInactiveStoreId,
+    );
+
     return (
         <select
             id={id}
@@ -196,7 +204,7 @@ function StoreSelect({
             <option value="" disabled>
                 店舗を選択
             </option>
-            {stores.map((store) => (
+            {selectableStores.map((store) => (
                 <option key={store.id} value={store.id}>
                     {store.name}
                     {store.is_active ? '' : '（無効）'}
@@ -275,6 +283,7 @@ function AssignmentEditForm({
                                 id={`assignment-store-${assignment.id}`}
                                 stores={stores}
                                 defaultValue={assignment.store_id}
+                                allowInactiveStoreId={assignment.store_id}
                             />
                             <InputError message={errors.store_id} />
                         </div>
@@ -469,6 +478,7 @@ function TransportationFields({
                     id={`${idPrefix}-store`}
                     stores={stores}
                     defaultValue={fee?.store_id}
+                    allowInactiveStoreId={fee?.store_id}
                 />
                 <InputError message={errors.store_id} />
             </div>
