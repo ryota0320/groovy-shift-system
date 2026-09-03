@@ -23,10 +23,46 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
-/** Covers MST-001 through MST-017 and IMP-001 through IMP-006. */
+/** Covers MST-001 through MST-018 and IMP-001 through IMP-006. */
 class MasterDataTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_staff_creation_requires_and_creates_an_initial_store_assignment_atomically(): void
+    {
+        $admin = User::factory()->create();
+        $store = Store::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('staffs.store'), [
+                'name' => '所属未設定スタッフ',
+                'employment_type' => EmploymentType::PartTime->value,
+                'hired_at' => '2026-09-01',
+                'retired_at' => null,
+            ])
+            ->assertSessionHasErrors(['store_id', 'assignment_effective_from']);
+
+        $this->assertDatabaseMissing('staffs', ['name' => '所属未設定スタッフ']);
+
+        $this->actingAs($admin)
+            ->post(route('staffs.store'), [
+                'name' => '初期所属ありスタッフ',
+                'employment_type' => EmploymentType::PartTime->value,
+                'hired_at' => '2026-09-01',
+                'retired_at' => null,
+                'store_id' => $store->id,
+                'assignment_effective_from' => '2026-09-01',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $staff = Staff::query()->where('name', '初期所属ありスタッフ')->firstOrFail();
+        $this->assertDatabaseHas('staff_store_assignments', [
+            'staff_id' => $staff->id,
+            'store_id' => $store->id,
+            'effective_from' => '2026-09-01 00:00:00',
+            'effective_to' => null,
+        ]);
+    }
 
     public function test_master_data_can_be_registered_and_updated_through_management_routes(): void
     {
@@ -58,6 +94,8 @@ class MasterDataTest extends TestCase
                 'employment_type' => EmploymentType::Employee->value,
                 'hired_at' => '2026-04-01',
                 'retired_at' => null,
+                'store_id' => $store->id,
+                'assignment_effective_from' => '2026-04-01',
             ])
             ->assertRedirect();
         $employee = Staff::query()->where('name', '社員 太郎')->firstOrFail();
@@ -81,17 +119,12 @@ class MasterDataTest extends TestCase
                 'employment_type' => EmploymentType::PartTime->value,
                 'hired_at' => null,
                 'retired_at' => null,
+                'store_id' => $store->id,
+                'assignment_effective_from' => '2026-04-01',
             ])
             ->assertRedirect();
         $partTime = Staff::query()->where('name', 'アルバイト 花子')->firstOrFail();
 
-        $this->actingAs($admin)
-            ->post(route('staffs.assignments.store', $partTime), [
-                'store_id' => $store->id,
-                'effective_from' => '2026-04-01',
-                'effective_to' => null,
-            ])
-            ->assertRedirect();
         $this->actingAs($admin)
             ->post(route('staffs.wage-rates.store', $partTime), [
                 'hourly_wage' => 1300,

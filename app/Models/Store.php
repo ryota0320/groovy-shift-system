@@ -44,6 +44,12 @@ class Store extends Model
         return $this->hasMany(Shift::class);
     }
 
+    /** @return HasMany<AttendanceRecord, $this> */
+    public function attendanceRecords(): HasMany
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {

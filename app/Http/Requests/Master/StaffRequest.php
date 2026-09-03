@@ -20,6 +20,19 @@ class StaffRequest extends FormRequest
                 'date',
                 Rule::when($this->filled('hired_at'), 'after_or_equal:hired_at'),
             ],
+            'store_id' => [
+                Rule::requiredIf($this->isMethod('post')),
+                'nullable',
+                'integer',
+                Rule::exists('stores', 'id')->where('is_active', true),
+            ],
+            'assignment_effective_from' => [
+                Rule::requiredIf($this->isMethod('post')),
+                'nullable',
+                'date',
+                Rule::when($this->filled('hired_at'), 'after_or_equal:hired_at'),
+                Rule::when($this->filled('retired_at'), 'before_or_equal:retired_at'),
+            ],
         ];
     }
 }

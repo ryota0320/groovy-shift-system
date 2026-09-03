@@ -14,6 +14,7 @@ use App\Models\StaffStoreAssignment;
 use App\Models\StaffStoreTransportationFee;
 use App\Models\StaffWageRate;
 use App\Services\EffectivePeriodService;
+use App\Services\PayrollRecalculationService;
 use App\Services\ShiftMasterDataGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,7 @@ class StaffHistoryController extends Controller
     public function __construct(
         private EffectivePeriodService $periods,
         private ShiftMasterDataGuard $shiftGuard,
+        private PayrollRecalculationService $payrolls,
     ) {}
 
     public function storeAssignment(
@@ -92,6 +94,7 @@ class StaffHistoryController extends Controller
                 $data['effective_to'] ?? null,
             );
             $staff->wageRates()->create($data);
+            $this->payrolls->markStaff($staff);
         });
 
         return $this->success('時給履歴を登録しました。');
@@ -115,6 +118,7 @@ class StaffHistoryController extends Controller
                 $wageRate->id,
             );
             $wageRate->update($data);
+            $this->payrolls->markStaff($staff);
         });
 
         return $this->success('時給履歴を更新しました。');
@@ -136,6 +140,7 @@ class StaffHistoryController extends Controller
                 $data['effective_to'] ?? null,
             );
             $staff->transportationFees()->create($data);
+            $this->payrolls->markStaff($staff);
         });
 
         return $this->success('交通費履歴を登録しました。');
@@ -160,6 +165,7 @@ class StaffHistoryController extends Controller
                 $transportationFee->id,
             );
             $transportationFee->update($data);
+            $this->payrolls->markStaff($staff);
         });
 
         return $this->success('交通費履歴を更新しました。');
@@ -180,6 +186,7 @@ class StaffHistoryController extends Controller
                 $data['effective_to'] ?? null,
             );
             $staff->incomeTaxSettings()->create($data);
+            $this->payrolls->markStaff($staff);
         });
 
         return $this->success('所得税設定を登録しました。');
@@ -203,6 +210,7 @@ class StaffHistoryController extends Controller
                 $incomeTaxSetting->id,
             );
             $incomeTaxSetting->update($data);
+            $this->payrolls->markStaff($staff);
         });
 
         return $this->success('所得税設定を更新しました。');

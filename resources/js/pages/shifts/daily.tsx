@@ -4,7 +4,9 @@ import {
     ArrowRight,
     CalendarOff,
     Grid3X3,
+    Plus,
     Save,
+    X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -21,7 +23,12 @@ import {
     valuesFromStaffs,
 } from '@/lib/shift-form';
 import type { ShiftValues } from '@/lib/shift-form';
-import type { DailyShiftStaff, ShiftValue, StoreOption } from '@/types';
+import type {
+    AddableShiftStaff,
+    DailyShiftStaff,
+    ShiftValue,
+    StoreOption,
+} from '@/types';
 
 type Props = {
     stores: StoreOption[];
@@ -32,6 +39,7 @@ type Props = {
     weekday: string;
     is_holiday: boolean;
     staffs: DailyShiftStaff[];
+    addable_staffs: AddableShiftStaff[];
 };
 
 export default function DailyShift({
@@ -43,16 +51,38 @@ export default function DailyShift({
     weekday,
     is_holiday: isHoliday,
     staffs,
+    addable_staffs: addableStaffs,
 }: Props) {
     const initialValues = useMemo(() => valuesFromStaffs(staffs), [staffs]);
     const [values, setValues] = useState<ShiftValues>(initialValues);
+    const [addedStaffIds, setAddedStaffIds] = useState<number[]>([]);
+    const [staffToAdd, setStaffToAdd] = useState('');
     const [saving, setSaving] = useState(false);
     const savingRef = useRef(false);
     const dirty = hasUnsavedShiftChanges(initialValues, values);
     const storePlaceholder = storeSelectionPlaceholder(stores, selectedStore);
+    const addedStaffs = useMemo(
+        () =>
+            addedStaffIds
+                .map((id) => addableStaffs.find((staff) => staff.id === id))
+                .filter(
+                    (staff): staff is AddableShiftStaff => staff !== undefined,
+                )
+                .map(toDailyShiftStaff),
+        [addableStaffs, addedStaffIds],
+    );
+    const visibleStaffs = useMemo(
+        () => [...staffs, ...addedStaffs],
+        [staffs, addedStaffs],
+    );
+    const remainingAddableStaffs = addableStaffs.filter(
+        (staff) => !addedStaffIds.includes(staff.id),
+    );
 
     useEffect(() => {
         setValues(initialValues);
+        setAddedStaffIds([]);
+        setStaffToAdd('');
     }, [initialValues]);
 
     useEffect(() => {
@@ -91,6 +121,31 @@ export default function DailyShift({
         setValues((current) => ({ ...current, [staffId]: next }));
     };
 
+    const addStaff = () => {
+        const staffId = Number(staffToAdd);
+        if (!staffId || addedStaffIds.includes(staffId)) return;
+
+        setAddedStaffIds((current) => [...current, staffId]);
+        setValues((current) => ({
+            ...current,
+            [staffId]: {
+                shift_type: null,
+                start_time: null,
+                store_id: null,
+            },
+        }));
+        setStaffToAdd('');
+    };
+
+    const removeAddedStaff = (staffId: number) => {
+        setAddedStaffIds((current) => current.filter((id) => id !== staffId));
+        setValues((current) => {
+            const next = { ...current };
+            delete next[staffId];
+            return next;
+        });
+    };
+
     const save = () => {
         if (!selectedStore || isHoliday) return;
 
@@ -101,12 +156,13 @@ export default function DailyShift({
             {
                 store_id: selectedStore.id,
                 shift_date: date,
-                shifts: staffs
+                shifts: visibleStaffs
                     .filter((staff) => staff.editable)
                     .map((staff) => ({
                         staff_id: staff.id,
                         shift_type: values[staff.id]?.shift_type ?? null,
                         start_time: values[staff.id]?.start_time ?? null,
+                        work_store_id: values[staff.id]?.store_id ?? null,
                     })),
             },
             {
@@ -223,21 +279,74 @@ export default function DailyShift({
                     </div>
                 )}
 
+                {selectedStore &&
+                    selectedStore.is_active &&
+                    !isHoliday &&
+                    remainingAddableStaffs.length > 0 && (
+                        <section className="border-border bg-card grid gap-3 rounded-xl border p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                            <div className="grid gap-2">
+                                <Label htmlFor="replacement-staff">
+                                    交代・応援スタッフを追加
+                                </Label>
+                                <select
+                                    id="replacement-staff"
+                                    value={staffToAdd}
+                                    onChange={(event) =>
+                                        setStaffToAdd(event.target.value)
+                                    }
+                                    className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+                                >
+                                    <option value="">スタッフを選択</option>
+                                    {remainingAddableStaffs.map((staff) => (
+                                        <option key={staff.id} value={staff.id}>
+                                            {staff.name}（
+                                            {staff.employment_type_label}
+                                            ・所属：
+                                            {staff.assignment_store_names.join(
+                                                '、',
+                                            )}
+                                            ）
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-muted-foreground text-xs">
+                                    対象日に他店所属のスタッフも交代・応援要員として追加できます。
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={!staffToAdd}
+                                onClick={addStaff}
+                            >
+                                <Plus />
+                                追加
+                            </Button>
+                        </section>
+                    )}
+
                 {!selectedStore ? (
                     <Empty message="シフトを管理する店舗がありません。" />
-                ) : staffs.length === 0 ? (
-                    <Empty message="この日に所属するスタッフはいません。" />
+                ) : visibleStaffs.length === 0 ? (
+                    <Empty message="この日に表示できるスタッフはいません。" />
                 ) : (
                     <>
                         <div className="grid gap-3 md:hidden">
-                            {staffs.map((staff) => (
+                            {visibleStaffs.map((staff) => (
                                 <StaffShiftCard
                                     key={staff.id}
                                     staff={staff}
                                     value={values[staff.id]}
+                                    stores={stores}
+                                    selectedStoreId={selectedStore.id}
                                     isHoliday={isHoliday}
                                     onChange={(next) =>
                                         updateValue(staff.id, next)
+                                    }
+                                    onRemove={
+                                        addedStaffIds.includes(staff.id)
+                                            ? () => removeAddedStaff(staff.id)
+                                            : undefined
                                     }
                                 />
                             ))}
@@ -259,10 +368,15 @@ export default function DailyShift({
                                         <th className="px-4 py-3 text-left font-medium">
                                             状態
                                         </th>
+                                        <th className="w-14 px-4 py-3">
+                                            <span className="sr-only">
+                                                操作
+                                            </span>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {staffs.map((staff) => (
+                                    {visibleStaffs.map((staff) => (
                                         <tr key={staff.id}>
                                             <td className="px-4 py-3 font-medium">
                                                 {staff.name}
@@ -270,7 +384,7 @@ export default function DailyShift({
                                             <td className="text-muted-foreground px-4 py-3">
                                                 {staff.employment_type_label}
                                             </td>
-                                            <td className="w-56 px-4 py-3">
+                                            <td className="w-[28rem] px-4 py-3">
                                                 {staff.inconsistency ? (
                                                     <span
                                                         className="text-destructive text-sm font-medium"
@@ -293,6 +407,13 @@ export default function DailyShift({
                                                 ) : (
                                                     <ShiftSelect
                                                         value={values[staff.id]}
+                                                        stores={stores}
+                                                        selectedStoreId={
+                                                            selectedStore.id
+                                                        }
+                                                        availableStoreIds={
+                                                            staff.available_store_ids
+                                                        }
                                                         disabled={
                                                             !staff.editable
                                                         }
@@ -311,6 +432,25 @@ export default function DailyShift({
                                                     staff={staff}
                                                     isHoliday={isHoliday}
                                                 />
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                {addedStaffIds.includes(
+                                                    staff.id,
+                                                ) && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        aria-label={`${staff.name}を追加対象から外す`}
+                                                        onClick={() =>
+                                                            removeAddedStaff(
+                                                                staff.id,
+                                                            )
+                                                        }
+                                                    >
+                                                        <X />
+                                                    </Button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -349,13 +489,19 @@ export default function DailyShift({
 function StaffShiftCard({
     staff,
     value,
+    stores,
+    selectedStoreId,
     isHoliday,
     onChange,
+    onRemove,
 }: {
     staff: DailyShiftStaff;
     value: ShiftValue;
+    stores: StoreOption[];
+    selectedStoreId: number;
     isHoliday: boolean;
     onChange: (value: ShiftValue) => void;
+    onRemove?: () => void;
 }) {
     return (
         <article className="border-border bg-card rounded-xl border p-4 shadow-sm">
@@ -367,6 +513,17 @@ function StaffShiftCard({
                     </p>
                 </div>
                 <StaffState staff={staff} isHoliday={isHoliday} />
+                {onRemove && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`${staff.name}を追加対象から外す`}
+                        onClick={onRemove}
+                    >
+                        <X />
+                    </Button>
+                )}
             </div>
             {staff.inconsistency ? (
                 <div
@@ -386,6 +543,9 @@ function StaffShiftCard({
             ) : (
                 <ShiftSelect
                     value={value}
+                    stores={stores}
+                    selectedStoreId={selectedStoreId}
+                    availableStoreIds={staff.available_store_ids}
                     disabled={!staff.editable}
                     ariaLabel={`${staff.name}のシフト`}
                     onChange={onChange}
@@ -393,6 +553,24 @@ function StaffShiftCard({
             )}
         </article>
     );
+}
+
+function toDailyShiftStaff(staff: AddableShiftStaff): DailyShiftStaff {
+    return {
+        id: staff.id,
+        name: staff.name,
+        employment_type: staff.employment_type,
+        employment_type_label: staff.employment_type_label,
+        eligible: true,
+        editable: true,
+        available_store_ids: staff.available_store_ids,
+        conflict_store: null,
+        inconsistency: null,
+        shift_type: null,
+        start_time: null,
+        store_id: null,
+        display: '',
+    };
 }
 
 function StaffState({

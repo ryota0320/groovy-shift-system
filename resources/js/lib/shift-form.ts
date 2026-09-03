@@ -10,6 +10,7 @@ export const valuesFromStaffs = (staffs: DailyShiftStaff[]): ShiftValues =>
             {
                 shift_type: staff.shift_type,
                 start_time: staff.start_time,
+                store_id: staff.store_id,
             },
         ]),
     );

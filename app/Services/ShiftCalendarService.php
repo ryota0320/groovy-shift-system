@@ -22,6 +22,14 @@ class ShiftCalendarService
             ->pluck('holiday_date')
             ->map(fn (mixed $date): string => Carbon::parse($date)->toDateString())
             ->flip();
+        $activeStores = Store::query()
+            ->where('is_active', true)
+            ->with(['holidays' => fn ($query) => $query->whereBetween('holiday_date', [
+                $periodStart->toDateString(),
+                $periodEnd->toDateString(),
+            ])])
+            ->get()
+            ->keyBy('id');
 
         $staffs = Staff::query()
             ->where(function (Builder $query) use ($store, $periodStart, $periodEnd): void {
@@ -41,7 +49,6 @@ class ShiftCalendarService
             })
             ->with([
                 'storeAssignments' => fn ($query) => $query
-                    ->where('store_id', $store->id)
                     ->whereDate('effective_from', '<=', $periodEnd->toDateString())
                     ->where(fn ($query) => $query
                         ->whereNull('effective_to')
@@ -75,7 +82,7 @@ class ShiftCalendarService
         return [
             'days' => $days,
             'staffs' => array_values($staffs
-                ->map(function (Staff $staff) use ($days, $holidays, $store): array {
+                ->map(function (Staff $staff) use ($activeStores, $days, $holidays, $store): array {
                     /** @var Collection<string, Shift> $shifts */
                     $shifts = $staff->shifts->keyBy(
                         fn (Shift $shift): string => $shift->shift_date->toDateString(),
@@ -86,22 +93,25 @@ class ShiftCalendarService
                         'name' => $staff->name,
                         'employment_type' => $staff->employment_type->value,
                         'cells' => collect($days)
-                            ->map(function (array $day) use ($staff, $shifts, $holidays, $store): array {
+                            ->map(function (array $day) use ($activeStores, $staff, $shifts, $holidays, $store): array {
                                 $date = $day['date'];
                                 $shift = $shifts->get($date);
                                 $assigned = $staff->storeAssignments->contains(
-                                    fn ($assignment): bool => $assignment->isEffectiveOn($date),
+                                    fn ($assignment): bool => $assignment->store_id === $store->id
+                                        && $assignment->isEffectiveOn($date),
                                 );
-                                $eligible = $staff->isEmployedOn($date) && $assigned;
-                                $conflict = $shift !== null
-                                    && $shift->shift_type !== ShiftType::Off
-                                    && $shift->store_id !== $store->id;
+                                $eligible = $staff->isEmployedOn($date)
+                                    && ($assigned || ($shift?->shift_type !== ShiftType::Off
+                                        && $shift?->store_id === $store->id));
+                                $availableStoreIds = $this->availableStoreIds(
+                                    $date,
+                                    $activeStores,
+                                );
                                 $inconsistency = $this->inconsistency(
                                     $shift,
-                                    $store,
                                     $staff->isEmployedOn($date),
-                                    $assigned,
-                                    $holidays->has($date),
+                                    $date,
+                                    $activeStores,
                                 );
 
                                 return [
@@ -110,8 +120,9 @@ class ShiftCalendarService
                                     'editable' => $store->is_active
                                         && ! $holidays->has($date)
                                         && $eligible
-                                        && ! $conflict,
-                                    'conflict_store' => $conflict ? $shift->store?->name : null,
+                                        && $inconsistency === null,
+                                    'available_store_ids' => $availableStoreIds,
+                                    'conflict_store' => null,
                                     'inconsistency' => $inconsistency,
                                     ...$this->shiftPayload($shift, $store),
                                 ];
@@ -130,6 +141,11 @@ class ShiftCalendarService
     {
         $dateString = $date->toDateString();
         $isHoliday = $store->holidays()->whereDate('holiday_date', $dateString)->exists();
+        $activeStores = Store::query()
+            ->where('is_active', true)
+            ->with(['holidays' => fn ($query) => $query->whereDate('holiday_date', $dateString)])
+            ->get()
+            ->keyBy('id');
 
         $candidateIds = Staff::query()
             ->where(function (Builder $query) use ($dateString): void {
@@ -159,7 +175,6 @@ class ShiftCalendarService
             ->whereKey($candidateIds->merge($existingIds)->unique())
             ->with([
                 'storeAssignments' => fn ($query) => $query
-                    ->where('store_id', $store->id)
                     ->whereDate('effective_from', '<=', $dateString)
                     ->where(fn ($query) => $query
                         ->whereNull('effective_to')
@@ -174,19 +189,21 @@ class ShiftCalendarService
         return [
             'is_holiday' => $isHoliday,
             'staffs' => array_values($staffs
-                ->map(function (Staff $staff) use ($dateString, $isHoliday, $store): array {
+                ->map(function (Staff $staff) use ($activeStores, $dateString, $isHoliday, $store): array {
                     $shift = $staff->shifts->first();
                     $eligible = $staff->isEmployedOn($dateString)
-                        && $staff->storeAssignments->isNotEmpty();
-                    $conflict = $shift !== null
-                        && $shift->shift_type !== ShiftType::Off
-                        && $shift->store_id !== $store->id;
+                        && ($staff->storeAssignments->contains(
+                            fn ($assignment): bool => $assignment->store_id === $store->id,
+                        ) || ($shift?->shift_type !== ShiftType::Off && $shift?->store_id === $store->id));
+                    $availableStoreIds = $this->availableStoreIds(
+                        $dateString,
+                        $activeStores,
+                    );
                     $inconsistency = $this->inconsistency(
                         $shift,
-                        $store,
                         $staff->isEmployedOn($dateString),
-                        $staff->storeAssignments->isNotEmpty(),
-                        $isHoliday,
+                        $dateString,
+                        $activeStores,
                     );
 
                     return [
@@ -198,34 +215,98 @@ class ShiftCalendarService
                         'editable' => $store->is_active
                             && ! $isHoliday
                             && $eligible
-                            && ! $conflict,
-                        'conflict_store' => $conflict ? $shift->store?->name : null,
+                            && $inconsistency === null,
+                        'available_store_ids' => $availableStoreIds,
+                        'conflict_store' => null,
                         'inconsistency' => $inconsistency,
                         ...$this->shiftPayload($shift, $store),
                     ];
                 })
                 ->values()
                 ->all()),
+            'addable_staffs' => $this->addableDailyStaffs(
+                $dateString,
+                $staffs->pluck('id'),
+                $activeStores,
+            ),
         ];
     }
 
-    /** @return array{shift_type: string|null, start_time: string|null, display: string} */
+    /**
+     * @param  Collection<int, int>  $excludedStaffIds
+     * @param  Collection<int, Store>  $activeStores
+     * @return list<array{id: int, name: string, employment_type: string, employment_type_label: string, assignment_store_names: list<string>, available_store_ids: list<int>}>
+     */
+    private function addableDailyStaffs(
+        string $date,
+        Collection $excludedStaffIds,
+        Collection $activeStores,
+    ): array {
+        return array_values(Staff::query()
+            ->whereNotIn('id', $excludedStaffIds)
+            ->where(function (Builder $query) use ($date): void {
+                $query->whereNull('hired_at')->orWhereDate('hired_at', '<=', $date);
+            })
+            ->where(function (Builder $query) use ($date): void {
+                $query->whereNull('retired_at')->orWhereDate('retired_at', '>=', $date);
+            })
+            ->whereHas('storeAssignments', fn ($query) => $query
+                ->whereDate('effective_from', '<=', $date)
+                ->where(fn ($query) => $query
+                    ->whereNull('effective_to')
+                    ->orWhereDate('effective_to', '>=', $date))
+                ->whereHas('store', fn ($query) => $query->where('is_active', true)))
+            ->whereDoesntHave('shifts', fn ($query) => $query->whereDate('shift_date', $date))
+            ->with(['storeAssignments' => fn ($query) => $query
+                ->whereDate('effective_from', '<=', $date)
+                ->where(fn ($query) => $query
+                    ->whereNull('effective_to')
+                    ->orWhereDate('effective_to', '>=', $date))
+                ->whereHas('store', fn ($query) => $query->where('is_active', true))
+                ->with('store:id,name')])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Staff $staff): array => [
+                'id' => $staff->id,
+                'name' => $staff->name,
+                'employment_type' => $staff->employment_type->value,
+                'employment_type_label' => $staff->employment_type->label(),
+                'assignment_store_names' => array_values($staff->storeAssignments
+                    ->pluck('store.name')
+                    ->filter()
+                    ->map(fn (mixed $name): string => (string) $name)
+                    ->values()
+                    ->all()),
+                'available_store_ids' => $this->availableStoreIds($date, $activeStores),
+            ])
+            ->values()
+            ->all());
+    }
+
+    /** @return array{shift_type: string|null, start_time: string|null, store_id: int|null, display: string} */
     private function shiftPayload(?Shift $shift, Store $store): array
     {
         if ($shift === null) {
-            return ['shift_type' => null, 'start_time' => null, 'display' => ''];
+            return ['shift_type' => null, 'start_time' => null, 'store_id' => null, 'display' => ''];
         }
 
         if ($shift->shift_type === ShiftType::Off) {
-            return ['shift_type' => 'off', 'start_time' => null, 'display' => '休'];
+            return ['shift_type' => 'off', 'start_time' => null, 'store_id' => null, 'display' => '休'];
         }
 
-        if ($shift->store_id !== $store->id) {
-            return ['shift_type' => null, 'start_time' => null, 'display' => '他店'];
+        if ($shift->shift_type === ShiftType::Absence) {
+            return ['shift_type' => 'absence', 'start_time' => null, 'store_id' => null, 'display' => '急休'];
         }
+
+        $prefix = $shift->store_id === $store->id ? '' : $shift->store?->name.' ';
 
         if ($shift->shift_type === ShiftType::Early) {
-            return ['shift_type' => 'early', 'start_time' => null, 'display' => '早'];
+            return [
+                'shift_type' => 'early',
+                'start_time' => null,
+                'store_id' => $shift->store_id,
+                'display' => $prefix.'早',
+            ];
         }
 
         $startTime = $shift->start_time === null
@@ -235,7 +316,8 @@ class ShiftCalendarService
         return [
             'shift_type' => 'time',
             'start_time' => $startTime,
-            'display' => $startTime === null ? '' : substr($startTime, 0, 2),
+            'store_id' => $shift->store_id,
+            'display' => $startTime === null ? '' : $prefix.substr($startTime, 0, 2),
         ];
     }
 
@@ -244,12 +326,12 @@ class ShiftCalendarService
         return ['日', '月', '火', '水', '木', '金', '土'][$date->dayOfWeek];
     }
 
+    /** @param Collection<int, Store> $activeStores */
     private function inconsistency(
         ?Shift $shift,
-        Store $store,
         bool $employed,
-        bool $assigned,
-        bool $holiday,
+        string $date,
+        Collection $activeStores,
     ): ?string {
         if ($shift === null) {
             return null;
@@ -259,22 +341,44 @@ class ShiftCalendarService
             return '在籍期間外の既存シフトです。';
         }
 
-        if ($shift->shift_type === ShiftType::Off) {
+        if (in_array($shift->shift_type, [ShiftType::Off, ShiftType::Absence], true)) {
             return null;
         }
 
-        if ($shift->store_id !== $store->id) {
-            return null;
+        if ($shift->store_id === null) {
+            return '勤務店舗がない既存シフトです。';
         }
 
-        if ($holiday) {
+        $workStore = $activeStores->get($shift->store_id);
+        if (! $workStore instanceof Store) {
+            return '無効な店舗の既存シフトです。';
+        }
+
+        if ($this->isHoliday($workStore, $date)) {
             return '店休日に勤務シフトが残っています。';
         }
 
-        if (! $assigned) {
-            return '店舗所属期間外の既存シフトです。';
-        }
-
         return null;
+    }
+
+    /**
+     * @param  Collection<int, Store>  $activeStores
+     * @return list<int>
+     */
+    private function availableStoreIds(string $date, Collection $activeStores): array
+    {
+        return array_values($activeStores
+            ->filter(fn (Store $store): bool => ! $this->isHoliday($store, $date))
+            ->keys()
+            ->map(fn (mixed $storeId): int => (int) $storeId)
+            ->values()
+            ->all());
+    }
+
+    private function isHoliday(Store $store, string $date): bool
+    {
+        return $store->holidays->contains(
+            fn ($holiday): bool => $holiday->holiday_date->toDateString() === $date,
+        );
     }
 }

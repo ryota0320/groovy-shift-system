@@ -63,6 +63,18 @@ class Staff extends Model
         return $this->hasMany(Shift::class);
     }
 
+    /** @return HasMany<AttendanceRecord, $this> */
+    public function attendanceRecords(): HasMany
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
+
+    /** @return HasMany<Payroll, $this> */
+    public function payrolls(): HasMany
+    {
+        return $this->hasMany(Payroll::class);
+    }
+
     public function isEmployedOn(DateTimeInterface|string $date): bool
     {
         $targetDate = Carbon::parse($date)->startOfDay();

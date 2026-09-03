@@ -69,6 +69,7 @@ export default function MonthlyShift({
                 shift_date: date,
                 shift_type: next.shift_type,
                 start_time: next.start_time,
+                work_store_id: next.store_id,
             },
             {
                 preserveScroll: true,
@@ -94,7 +95,7 @@ export default function MonthlyShift({
             <div className="flex h-full min-w-0 flex-1 flex-col gap-5 p-4 md:p-6">
                 <MasterPageHeader
                     title="月間シフト"
-                    description="スタッフごとに、勤務開始時刻・早番・休みを登録します。"
+                    description="スタッフごとに、勤務開始時刻・早番・休み・急な休みと勤務店舗を登録します。"
                     actions={
                         <div className="flex flex-wrap gap-2">
                             <Button
@@ -159,6 +160,7 @@ export default function MonthlyShift({
                         <span>00〜23：勤務開始時刻</span>
                         <span>早：早番</span>
                         <span>休：休み</span>
+                        <span>勤務時は自店・ヘルプ先を選択</span>
                     </div>
                 </section>
 
@@ -224,6 +226,7 @@ export default function MonthlyShift({
                                                 const initial = {
                                                     shift_type: cell.shift_type,
                                                     start_time: cell.start_time,
+                                                    store_id: cell.store_id,
                                                 };
                                                 const value = overrides[key]
                                                     ? decodeShiftValue(
@@ -280,6 +283,13 @@ export default function MonthlyShift({
                                                             <ShiftSelect
                                                                 compact
                                                                 value={value}
+                                                                stores={stores}
+                                                                selectedStoreId={
+                                                                    selectedStore.id
+                                                                }
+                                                                availableStoreIds={
+                                                                    cell.available_store_ids
+                                                                }
                                                                 disabled={
                                                                     !cell.editable ||
                                                                     savingCell !==

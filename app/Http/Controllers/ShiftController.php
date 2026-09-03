@@ -60,7 +60,7 @@ class ShiftController extends Controller
         );
         $date = Carbon::parse($validated['date'] ?? today())->startOfDay();
         $calendar = $store === null
-            ? ['is_holiday' => false, 'staffs' => []]
+            ? ['is_holiday' => false, 'staffs' => [], 'addable_staffs' => []]
             : $this->calendar->daily($store, $date);
 
         return Inertia::render('shifts/daily', [
@@ -85,12 +85,15 @@ class ShiftController extends Controller
         }
 
         $type = ShiftType::from($data['shift_type']);
+        $contextStore = $this->findStore((int) $data['store_id']);
+        $workStore = $this->workStore($data['work_store_id'] ?? null, $type);
         $this->shifts->create(
-            $this->findStore((int) $data['store_id']),
+            $contextStore,
             $this->staff((int) $data['staff_id']),
             $data['shift_date'],
             $type,
             $data['start_time'] ?? null,
+            $workStore,
         );
 
         return $this->success('シフトを登録しました。');
@@ -108,6 +111,7 @@ class ShiftController extends Controller
             $data['shift_date'],
             $type,
             $data['start_time'] ?? null,
+            $this->workStore($data['work_store_id'] ?? null, $type),
         );
 
         return $this->success('シフトを更新しました。');
@@ -149,6 +153,15 @@ class ShiftController extends Controller
     private function staff(int $staffId): Staff
     {
         return Staff::query()->findOrFail($staffId);
+    }
+
+    private function workStore(mixed $storeId, ?ShiftType $type): ?Store
+    {
+        if ($type === null || in_array($type, [ShiftType::Off, ShiftType::Absence], true) || $storeId === null) {
+            return null;
+        }
+
+        return $this->findStore((int) $storeId);
     }
 
     private function success(string $message): RedirectResponse

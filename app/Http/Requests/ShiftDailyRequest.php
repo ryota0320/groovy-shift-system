@@ -19,6 +19,7 @@ class ShiftDailyRequest extends FormRequest
             'shifts.*.staff_id' => ['required', 'integer', 'distinct', 'exists:staffs,id'],
             'shifts.*.shift_type' => ['nullable', Rule::enum(ShiftType::class)],
             'shifts.*.start_time' => ['nullable', 'date_format:H:i'],
+            'shifts.*.work_store_id' => ['nullable', 'integer', 'exists:stores,id'],
         ];
     }
 
@@ -36,6 +37,7 @@ class ShiftDailyRequest extends FormRequest
                         $validator,
                         $shift['shift_type'] ?? null,
                         $shift['start_time'] ?? null,
+                        $shift['work_store_id'] ?? null,
                         "shifts.{$index}.",
                     );
                 }

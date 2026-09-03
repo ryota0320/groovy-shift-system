@@ -5,15 +5,22 @@ import MasterPageHeader from '@/components/master-page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type { StoreOption } from '@/types';
 
-export default function StaffCreate() {
+export default function StaffCreate({
+    stores,
+    today,
+}: {
+    stores: StoreOption[];
+    today: string;
+}) {
     return (
         <>
             <Head title="スタッフ登録" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <MasterPageHeader
                     title="スタッフ登録"
-                    description="氏名、雇用区分、在籍期間を登録します。所属や単価は登録後に設定できます。"
+                    description="氏名、雇用区分、在籍期間と初期所属店舗を登録します。"
                     actions={
                         <Button variant="outline" asChild>
                             <Link href="/staffs">
@@ -80,6 +87,51 @@ export default function StaffCreate() {
                                         />
                                         <InputError
                                             message={errors.retired_at}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="store-id">
+                                            所属店舗
+                                        </Label>
+                                        <select
+                                            id="store-id"
+                                            name="store_id"
+                                            required
+                                            defaultValue=""
+                                            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
+                                        >
+                                            <option value="" disabled>
+                                                店舗を選択
+                                            </option>
+                                            {stores.map((store) => (
+                                                <option
+                                                    key={store.id}
+                                                    value={store.id}
+                                                >
+                                                    {store.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <InputError message={errors.store_id} />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="assignment-effective-from">
+                                            所属開始日
+                                        </Label>
+                                        <Input
+                                            id="assignment-effective-from"
+                                            name="assignment_effective_from"
+                                            type="date"
+                                            defaultValue={today}
+                                            required
+                                        />
+                                        <InputError
+                                            message={
+                                                errors.assignment_effective_from
+                                            }
                                         />
                                     </div>
                                 </div>

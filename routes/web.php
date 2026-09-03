@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Master\LateNightRateSettingController;
 use App\Http\Controllers\Master\StaffController;
@@ -73,6 +74,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('shifts.cell.save');
         Route::put('shifts/daily', [ShiftController::class, 'saveDaily'])
             ->name('shifts.daily.save');
+
+        Route::get('attendance/daily', [AttendanceController::class, 'daily'])
+            ->name('attendance.daily');
+        Route::put('attendance/daily', [AttendanceController::class, 'saveDaily'])
+            ->name('attendance.daily.save');
+        Route::delete('attendance/{attendanceRecord}', [AttendanceController::class, 'destroy'])
+            ->name('attendance.destroy');
 
         Route::put('selected-store', [SelectedStoreController::class, 'update'])
             ->name('selected-store.update');

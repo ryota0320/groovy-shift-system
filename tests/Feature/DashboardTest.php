@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AttendanceRecord;
 use App\Models\Shift;
 use App\Models\Staff;
 use App\Models\Store;
@@ -89,6 +90,35 @@ class DashboardTest extends TestCase
             ->get(route('shifts.daily', ['date' => today()->toDateString()]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('selected_store.id', $selectedStore->id));
+    }
+
+    public function test_attendance_missing_count_excludes_staff_with_today_attendance(): void
+    {
+        $user = User::factory()->create();
+        $store = Store::factory()->create();
+        $missingStaff = Staff::factory()->create();
+        $attendedStaff = Staff::factory()->create();
+
+        foreach ([$missingStaff, $attendedStaff] as $staff) {
+            Shift::query()->create([
+                'staff_id' => $staff->id,
+                'store_id' => $store->id,
+                'shift_date' => today()->toDateString(),
+                'shift_type' => 'time',
+                'start_time' => '19:00',
+            ]);
+        }
+        AttendanceRecord::factory()->create([
+            'staff_id' => $attendedStaff->id,
+            'store_id' => $store->id,
+            'work_date' => today()->toDateString(),
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('today_shift_count', 2)
+                ->where('attendance_missing_count', 1));
     }
 
     public function test_inactive_store_cannot_be_selected_as_current_store(): void

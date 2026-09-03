@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Master\StaffRequest;
 use App\Models\Staff;
 use App\Models\Store;
+use App\Services\PayrollRecalculationService;
 use App\Services\ShiftMasterDataGuard;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,10 @@ use Inertia\Response;
 
 class StaffController extends Controller
 {
-    public function __construct(private ShiftMasterDataGuard $shiftGuard) {}
+    public function __construct(
+        private ShiftMasterDataGuard $shiftGuard,
+        private PayrollRecalculationService $payrolls,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -92,12 +96,33 @@ class StaffController extends Controller
 
     public function create(): Response
     {
-        return Inertia::render('staffs/create');
+        return Inertia::render('staffs/create', [
+            'stores' => Store::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'is_active']),
+            'today' => today()->toDateString(),
+        ]);
     }
 
     public function store(StaffRequest $request): RedirectResponse
     {
-        $staff = Staff::query()->create($request->validated());
+        $data = $request->validated();
+        $staff = DB::transaction(function () use ($data): Staff {
+            $staff = Staff::query()->create([
+                'name' => $data['name'],
+                'employment_type' => $data['employment_type'],
+                'hired_at' => $data['hired_at'] ?? null,
+                'retired_at' => $data['retired_at'] ?? null,
+            ]);
+            $staff->storeAssignments()->create([
+                'store_id' => $data['store_id'],
+                'effective_from' => $data['assignment_effective_from'],
+                'effective_to' => null,
+            ]);
+
+            return $staff;
+        });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'スタッフを登録しました。']);
 
@@ -183,7 +208,12 @@ class StaffController extends Controller
 
     public function update(StaffRequest $request, Staff $staff): RedirectResponse
     {
-        $data = $request->validated();
+        $data = $request->safe()->only([
+            'name',
+            'employment_type',
+            'hired_at',
+            'retired_at',
+        ]);
 
         DB::transaction(function () use ($staff, $data): void {
             $staff = Staff::query()->lockForUpdate()->findOrFail($staff->id);
@@ -196,9 +226,11 @@ class StaffController extends Controller
 
             if ($staff->employment_type === EmploymentType::PartTime
                 && $data['employment_type'] === EmploymentType::Employee->value
-                && ($staff->wageRates()->exists() || $staff->incomeTaxSettings()->exists())) {
+                && ($staff->wageRates()->exists()
+                    || $staff->incomeTaxSettings()->exists()
+                    || $staff->payrolls()->exists())) {
                 throw ValidationException::withMessages([
-                    'employment_type' => '時給または所得税設定の履歴があるアルバイトを社員へ変更できません。',
+                    'employment_type' => '時給・所得税設定または給与結果があるアルバイトを社員へ変更できません。',
                 ]);
             }
 
@@ -208,6 +240,7 @@ class StaffController extends Controller
                 $data['retired_at'] ?? null,
             );
             $staff->update($data);
+            $this->payrolls->markStaff($staff);
         });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'スタッフ情報を更新しました。']);

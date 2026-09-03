@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import {
     Building2,
     CalendarDays,
+    Clock3,
     LayoutGrid,
     MoonStar,
     UsersRound,
@@ -41,6 +42,11 @@ const mainNavItems: NavItem[] = [
         title: 'シフト',
         href: '/shifts/monthly',
         icon: CalendarDays,
+    },
+    {
+        title: '勤怠',
+        href: '/attendance/daily',
+        icon: Clock3,
     },
     {
         title: '深夜加算設定',

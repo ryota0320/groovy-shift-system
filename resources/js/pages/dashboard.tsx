@@ -17,6 +17,7 @@ type Props = {
     today: string;
     today_label: string;
     today_shift_count: number;
+    attendance_missing_count: number;
 };
 
 export default function Dashboard({
@@ -25,6 +26,7 @@ export default function Dashboard({
     today,
     today_label: todayLabel,
     today_shift_count: todayShiftCount,
+    attendance_missing_count: attendanceMissingCount,
 }: Props) {
     const [selectingStore, setSelectingStore] = useState(false);
 
@@ -82,10 +84,29 @@ export default function Dashboard({
                     </DashboardCard>
 
                     <DashboardCard title="勤怠未入力" icon={Clock3}>
-                        <p className="mt-2 text-2xl font-semibold">準備中</p>
-                        <p className="text-muted-foreground mt-4 text-sm">
-                            Phase 3で実装します
+                        <p className="mt-2 text-2xl font-semibold tabular-nums">
+                            {selectedStore
+                                ? `${attendanceMissingCount}人`
+                                : '—'}
                         </p>
+                        {selectedStore ? (
+                            <Button
+                                variant="link"
+                                className="mt-2 h-auto p-0"
+                                asChild
+                            >
+                                <Link
+                                    href={`/attendance/daily?store_id=${selectedStore.id}&date=${today}`}
+                                >
+                                    日次勤怠を入力
+                                    <ArrowRight />
+                                </Link>
+                            </Button>
+                        ) : (
+                            <p className="text-muted-foreground mt-4 text-sm">
+                                利用できる店舗がありません。
+                            </p>
+                        )}
                     </DashboardCard>
 
                     <DashboardCard title="選択店舗" icon={Store}>
@@ -144,14 +165,24 @@ export default function Dashboard({
                             </div>
                         </div>
                         {selectedStore && (
-                            <Button asChild>
-                                <Link
-                                    href={`/shifts/monthly?store_id=${selectedStore.id}&month=${today.slice(0, 7)}`}
-                                >
-                                    月間シフトを開く
-                                    <ArrowRight />
-                                </Link>
-                            </Button>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                                <Button variant="outline" asChild>
+                                    <Link
+                                        href={`/attendance/daily?store_id=${selectedStore.id}&date=${today}`}
+                                    >
+                                        今日の勤怠
+                                        <Clock3 />
+                                    </Link>
+                                </Button>
+                                <Button asChild>
+                                    <Link
+                                        href={`/shifts/monthly?store_id=${selectedStore.id}&month=${today.slice(0, 7)}`}
+                                    >
+                                        月間シフトを開く
+                                        <ArrowRight />
+                                    </Link>
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </section>

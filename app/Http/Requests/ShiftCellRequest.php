@@ -18,6 +18,7 @@ class ShiftCellRequest extends FormRequest
             'shift_date' => ['required', 'date'],
             'shift_type' => ['nullable', Rule::enum(ShiftType::class)],
             'start_time' => ['nullable', 'date_format:H:i'],
+            'work_store_id' => ['nullable', 'integer', 'exists:stores,id'],
         ];
     }
 
@@ -30,6 +31,7 @@ class ShiftCellRequest extends FormRequest
                     $validator,
                     $this->input('shift_type'),
                     $this->input('start_time'),
+                    $this->input('work_store_id'),
                 );
             },
         ];
@@ -39,10 +41,20 @@ class ShiftCellRequest extends FormRequest
         Validator $validator,
         mixed $shiftType,
         mixed $startTime,
+        mixed $workStoreId,
         string $prefix = '',
     ): void {
         $type = is_string($shiftType) ? ShiftType::tryFrom($shiftType) : null;
         $timeField = $prefix.'start_time';
+        $storeField = $prefix.'work_store_id';
+
+        if ($type === ShiftType::Time || $type === ShiftType::Early) {
+            if (! is_numeric($workStoreId) || (int) $workStoreId < 1) {
+                $validator->errors()->add($storeField, '勤務店舗を選択してください。');
+            }
+        } elseif ($workStoreId !== null && $workStoreId !== '') {
+            $validator->errors()->add($storeField, '休み・急な休み・未設定では勤務店舗を指定できません。');
+        }
 
         if ($type === ShiftType::Time) {
             if (! is_string($startTime) || ! preg_match('/^(?:[01]\\d|2[0-3]):00$/', $startTime)) {
@@ -53,7 +65,7 @@ class ShiftCellRequest extends FormRequest
         }
 
         if ($startTime !== null && $startTime !== '') {
-            $validator->errors()->add($timeField, '早番・休み・未設定では開始時刻を指定できません。');
+            $validator->errors()->add($timeField, '早番・休み・急な休み・未設定では開始時刻を指定できません。');
         }
     }
 }

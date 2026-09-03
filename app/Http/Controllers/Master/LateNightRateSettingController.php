@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Master\LateNightRateSettingRequest;
 use App\Models\LateNightRateSetting;
 use App\Services\EffectivePeriodService;
+use App\Services\PayrollRecalculationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -13,7 +14,10 @@ use Inertia\Response;
 
 class LateNightRateSettingController extends Controller
 {
-    public function __construct(private EffectivePeriodService $periods) {}
+    public function __construct(
+        private EffectivePeriodService $periods,
+        private PayrollRecalculationService $payrolls,
+    ) {}
 
     public function index(): Response
     {
@@ -41,6 +45,7 @@ class LateNightRateSettingController extends Controller
                 $data['effective_to'] ?? null,
             );
             LateNightRateSetting::query()->create($data);
+            $this->payrolls->markAll();
         });
 
         return $this->success('深夜加算額を登録しました。');
@@ -60,6 +65,7 @@ class LateNightRateSettingController extends Controller
                 $lateNightRate->id,
             );
             $lateNightRate->update($data);
+            $this->payrolls->markAll();
         });
 
         return $this->success('深夜加算額を更新しました。');

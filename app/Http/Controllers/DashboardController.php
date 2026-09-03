@@ -15,9 +15,16 @@ class DashboardController extends Controller
         $selectedStore = $selectedStores->current($request);
         $today = today();
         $weekday = ['日', '月', '火', '水', '木', '金', '土'][$today->dayOfWeek];
-        $todayShiftCount = $selectedStore?->shifts()
+        $todayShiftStaffIds = $selectedStore?->shifts()
             ->whereDate('shift_date', $today->toDateString())
-            ->count() ?? 0;
+            ->pluck('staff_id') ?? collect();
+        $todayAttendanceStaffIds = $selectedStore?->attendanceRecords()
+            ->whereDate('work_date', $today->toDateString())
+            ->pluck('staff_id') ?? collect();
+        $todayShiftCount = $todayShiftStaffIds->count();
+        $attendanceMissingCount = $todayShiftStaffIds
+            ->diff($todayAttendanceStaffIds)
+            ->count();
 
         return Inertia::render('dashboard', [
             'stores' => Store::query()
@@ -28,6 +35,7 @@ class DashboardController extends Controller
             'today' => $today->toDateString(),
             'today_label' => $today->format("Y年n月j日（{$weekday}）"),
             'today_shift_count' => $todayShiftCount,
+            'attendance_missing_count' => $attendanceMissingCount,
         ]);
     }
 }
