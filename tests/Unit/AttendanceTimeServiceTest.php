@@ -7,7 +7,7 @@ use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
-/** Covers ATT-002 through ATT-007, ATT-017 and LNT-001 through LNT-008. */
+/** Covers ATT-002 through ATT-007, ATT-017, ATT-032 through ATT-035 and LNT-001 through LNT-008. */
 class AttendanceTimeServiceTest extends TestCase
 {
     #[DataProvider('timeCases')]
@@ -45,6 +45,13 @@ class AttendanceTimeServiceTest extends TestCase
         $this->assertSame(240, $result->lateNightMinutes);
     }
 
+    public function test_early_morning_times_cannot_be_registered_as_the_same_business_date(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new AttendanceTimeService)->calculate('2026-09-05', 60, 300);
+    }
+
     public function test_next_midnight_and_next_ten_are_valid_boundaries(): void
     {
         $midnight = (new AttendanceTimeService)->calculate('2026-09-04', 1380, 1440);
@@ -52,6 +59,22 @@ class AttendanceTimeServiceTest extends TestCase
 
         $this->assertSame('2026-09-05 00:00:00', $midnight->clockOutAt->format('Y-m-d H:i:s'));
         $this->assertSame('2026-09-05 10:00:00', $ten->clockOutAt->format('Y-m-d H:i:s'));
+    }
+
+    public function test_preparation_before_opening_and_checkout_after_next_ten_are_valid(): void
+    {
+        $result = (new AttendanceTimeService)->calculate('2026-09-04', 900, 2220);
+
+        $this->assertSame('2026-09-04 15:00:00', $result->clockInAt->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-09-05 13:00:00', $result->clockOutAt->format('Y-m-d H:i:s'));
+        $this->assertSame(1320, $result->workingMinutes);
+    }
+
+    public function test_twenty_four_hour_shift_is_rejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new AttendanceTimeService)->calculate('2026-09-04', 900, 2340);
     }
 
     public function test_non_quarter_hour_and_out_of_range_offsets_are_rejected(): void

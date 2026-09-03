@@ -1,4 +1,4 @@
-export type ShiftType = 'time' | 'early' | 'off' | 'absence';
+export type ShiftType = 'time' | 'early' | 'help' | 'off' | 'absence';
 
 export type ShiftCell = {
     shift_type: ShiftType | null;
@@ -25,7 +25,17 @@ export type MonthlyShiftStaff = {
     id: number;
     name: string;
     employment_type: 'employee' | 'part_time';
+    is_added: boolean;
+    can_remove: boolean;
     cells: (ShiftCell & { date: string })[];
+};
+
+export type AddableMonthlyShiftStaff = {
+    id: number;
+    name: string;
+    employment_type: 'employee' | 'part_time';
+    employment_type_label: string;
+    assignment_store_names: string[];
 };
 
 export type DailyShiftStaff = ShiftCell & {

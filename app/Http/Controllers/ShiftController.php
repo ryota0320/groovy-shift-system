@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ShiftType;
+use App\Http\Requests\MonthlyShiftStaffRequest;
 use App\Http\Requests\ShiftCellRequest;
 use App\Http\Requests\ShiftDailyRequest;
 use App\Http\Requests\ShiftStaffOrderRequest;
+use App\Models\MonthlyShiftStaffAddition;
+use App\Models\Shift;
 use App\Models\Staff;
 use App\Models\StaffStoreDisplayOrder;
 use App\Models\Store;
+use App\Services\BusinessDateService;
 use App\Services\SelectedStoreService;
 use App\Services\ShiftCalendarService;
 use App\Services\ShiftSaveService;
@@ -26,6 +30,7 @@ class ShiftController extends Controller
         private ShiftCalendarService $calendar,
         private ShiftSaveService $shifts,
         private SelectedStoreService $selectedStores,
+        private BusinessDateService $businessDates,
     ) {}
 
     public function monthly(Request $request): Response
@@ -40,7 +45,7 @@ class ShiftController extends Controller
         );
         $month = Carbon::createFromFormat('!Y-m', $validated['month'] ?? now()->format('Y-m'));
         $calendar = $store === null
-            ? ['days' => [], 'staffs' => []]
+            ? ['days' => [], 'staffs' => [], 'addable_staffs' => []]
             : $this->calendar->monthly($store, $month);
 
         return Inertia::render('shifts/monthly', [
@@ -61,7 +66,7 @@ class ShiftController extends Controller
             $request,
             $validated['store_id'] ?? null,
         );
-        $date = Carbon::parse($validated['date'] ?? today())->startOfDay();
+        $date = Carbon::parse($validated['date'] ?? $this->businessDates->current())->startOfDay();
         $calendar = $store === null
             ? ['is_holiday' => false, 'staffs' => [], 'addable_staffs' => []]
             : $this->calendar->daily($store, $date);
@@ -136,11 +141,14 @@ class ShiftController extends Controller
     {
         $data = $request->validated();
         $storeId = (int) $data['store_id'];
+        $month = isset($data['month'])
+            ? Carbon::createFromFormat('!Y-m', $data['month'])
+            : null;
         /** @var list<int|string> $staffIds */
         $staffIds = $data['staff_ids'];
         $submittedStaffIds = collect($staffIds)->map(fn (int|string $id): int => (int) $id);
 
-        DB::transaction(function () use ($storeId, $submittedStaffIds): void {
+        DB::transaction(function () use ($month, $storeId, $submittedStaffIds): void {
             $existingStaffIds = StaffStoreDisplayOrder::query()
                 ->where('store_id', $storeId)
                 ->orderBy('position')
@@ -166,9 +174,152 @@ class ShiftController extends Controller
                 ['store_id', 'staff_id'],
                 ['position', 'updated_at'],
             );
+
+            if ($month !== null) {
+                foreach ($submittedStaffIds as $position => $staffId) {
+                    MonthlyShiftStaffAddition::query()
+                        ->where('store_id', $storeId)
+                        ->where('staff_id', $staffId)
+                        ->whereDate('month', $month->toDateString())
+                        ->update(['position' => $position]);
+                }
+            }
         });
 
         return back();
+    }
+
+    public function addMonthlyStaff(MonthlyShiftStaffRequest $request): RedirectResponse
+    {
+        $data = $request->validated();
+        $store = $this->findStore((int) $data['store_id']);
+        $staff = $this->staff((int) $data['staff_id']);
+        $month = Carbon::createFromFormat('!Y-m', $data['month']);
+        $periodStart = $month->copy()->startOfMonth();
+        $periodEnd = $month->copy()->endOfMonth();
+
+        if (! $store->is_active) {
+            throw ValidationException::withMessages([
+                'staff_id' => '無効な店舗の月間シフトへスタッフを追加できません。',
+            ]);
+        }
+        $employedDuringMonth = ($staff->hired_at === null || $staff->hired_at->lessThanOrEqualTo($periodEnd))
+            && ($staff->retired_at === null || $staff->retired_at->greaterThanOrEqualTo($periodStart));
+        $assignedToActiveStoreDuringMonth = $staff->storeAssignments()
+            ->whereDate('effective_from', '<=', $periodEnd->toDateString())
+            ->where(fn ($query) => $query
+                ->whereNull('effective_to')
+                ->orWhereDate('effective_to', '>=', $periodStart->toDateString()))
+            ->whereHas('store', fn ($query) => $query->where('is_active', true))
+            ->exists();
+
+        if (! $employedDuringMonth || ! $assignedToActiveStoreDuringMonth) {
+            throw ValidationException::withMessages([
+                'staff_id' => '対象月に在籍し、有効な店舗へ所属するスタッフを選択してください。',
+            ]);
+        }
+        $visibleStaffIds = collect($this->calendar->monthly($store, $month)['staffs'])->pluck('id');
+        if ($visibleStaffIds->contains($staff->id)) {
+            throw ValidationException::withMessages([
+                'staff_id' => 'このスタッフは月間シフトに既に表示されています。',
+            ]);
+        }
+
+        DB::transaction(function () use ($month, $staff, $store, $visibleStaffIds): void {
+            Store::query()->whereKey($store->id)->lockForUpdate()->firstOrFail();
+            $existingStaffIds = StaffStoreDisplayOrder::query()
+                ->where('store_id', $store->id)
+                ->orderBy('position')
+                ->orderBy('staff_id')
+                ->lockForUpdate()
+                ->pluck('staff_id');
+            $orderedStaffIds = $visibleStaffIds
+                ->push($staff->id)
+                ->merge($existingStaffIds)
+                ->unique()
+                ->values();
+            $timestamp = now();
+
+            StaffStoreDisplayOrder::query()->upsert(
+                $orderedStaffIds
+                    ->map(fn (int $staffId, int $position): array => [
+                        'store_id' => $store->id,
+                        'staff_id' => $staffId,
+                        'position' => $position,
+                        'created_at' => $timestamp,
+                        'updated_at' => $timestamp,
+                    ])
+                    ->all(),
+                ['store_id', 'staff_id'],
+                ['position', 'updated_at'],
+            );
+
+            $lastPosition = MonthlyShiftStaffAddition::query()
+                ->where('store_id', $store->id)
+                ->whereDate('month', $month->toDateString())
+                ->lockForUpdate()
+                ->max('position');
+            MonthlyShiftStaffAddition::query()->create([
+                'store_id' => $store->id,
+                'staff_id' => $staff->id,
+                'month' => $month->toDateString(),
+                'position' => $lastPosition === null ? 0 : ((int) $lastPosition + 1),
+            ]);
+        });
+
+        return $this->success("{$staff->name}さんを月間シフトの末尾へ追加しました。");
+    }
+
+    public function removeMonthlyStaff(MonthlyShiftStaffRequest $request): RedirectResponse
+    {
+        $data = $request->validated();
+        $store = $this->findStore((int) $data['store_id']);
+        $staff = $this->staff((int) $data['staff_id']);
+        $month = Carbon::createFromFormat('!Y-m', $data['month']);
+        $periodStart = $month->copy()->startOfMonth();
+        $periodEnd = $month->copy()->endOfMonth();
+        $assignedToContextStore = $staff->storeAssignments()
+            ->where('store_id', $store->id)
+            ->whereDate('effective_from', '<=', $periodEnd->toDateString())
+            ->where(fn ($query) => $query
+                ->whereNull('effective_to')
+                ->orWhereDate('effective_to', '>=', $periodStart->toDateString()))
+            ->exists();
+
+        if ($assignedToContextStore) {
+            throw ValidationException::withMessages([
+                'staff_id' => '対象月に表示店舗へ所属しているスタッフは一覧から削除できません。',
+            ]);
+        }
+
+        $deletedShiftCount = DB::transaction(function () use ($periodEnd, $periodStart, $staff, $store): int {
+            $addition = MonthlyShiftStaffAddition::query()
+                ->where('store_id', $store->id)
+                ->where('staff_id', $staff->id)
+                ->whereDate('month', $periodStart->toDateString())
+                ->lockForUpdate()
+                ->first();
+            $shiftQuery = Shift::query()
+                ->where('staff_id', $staff->id)
+                ->whereBetween('shift_date', [
+                    $periodStart->toDateString(),
+                    $periodEnd->toDateString(),
+                ]);
+            $hasShifts = (clone $shiftQuery)->exists();
+
+            if ($addition === null && ! $hasShifts) {
+                throw ValidationException::withMessages([
+                    'staff_id' => '対象月の一覧から削除できるデータがありません。',
+                ]);
+            }
+
+            $deletedShiftCount = $shiftQuery->delete();
+            $addition?->delete();
+
+            return $deletedShiftCount;
+        });
+
+        return $this->success("{$staff->name}さんを対象月の一覧から削除し、登録済みシフト{$deletedShiftCount}件を削除しました。");
     }
 
     /** @return list<array{id: int, name: string, opening_time: string, closing_time: string, is_active: bool}> */

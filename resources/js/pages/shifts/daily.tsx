@@ -205,68 +205,128 @@ export default function DailyShift({
                     }
                 />
 
-                <section className="border-border bg-card grid gap-4 rounded-xl border p-4 shadow-sm sm:grid-cols-[minmax(180px,1fr)_minmax(170px,1fr)_auto] sm:items-end">
-                    <div className="grid gap-2">
-                        <Label htmlFor="daily-store">店舗</Label>
-                        <select
-                            id="daily-store"
-                            value={selectedStore?.id ?? ''}
-                            onChange={(event) => move(event.target.value, date)}
-                            className="border-input bg-background h-10 rounded-md border px-3 text-sm"
-                        >
-                            {storePlaceholder && (
-                                <option value="">{storePlaceholder}</option>
-                            )}
-                            {stores.map((store) => (
-                                <option key={store.id} value={store.id}>
-                                    {store.name}
-                                    {store.is_active ? '' : '（無効）'}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="daily-date">対象日</Label>
-                        <Input
-                            id="daily-date"
-                            type="date"
-                            value={date}
-                            onChange={(event) =>
-                                move(
-                                    String(selectedStore?.id ?? ''),
-                                    event.target.value,
-                                )
-                            }
-                        />
-                    </div>
-                    {selectedStore && (
-                        <div className="flex items-center justify-between gap-2 sm:justify-end">
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                aria-label="前日"
-                                onClick={() =>
-                                    move(String(selectedStore.id), previousDate)
+                <div className="grid w-full gap-5 xl:grid-cols-2 xl:items-stretch">
+                    <section className="border-border bg-card grid w-full gap-4 rounded-xl border p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end xl:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <div className="grid gap-2">
+                            <Label htmlFor="daily-store">店舗</Label>
+                            <select
+                                id="daily-store"
+                                value={selectedStore?.id ?? ''}
+                                onChange={(event) =>
+                                    move(event.target.value, date)
                                 }
+                                className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
                             >
-                                <ArrowLeft />
-                            </Button>
-                            <span className="min-w-24 text-center text-sm font-medium">
-                                {date.replaceAll('-', '/')}（{weekday}）
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                aria-label="翌日"
-                                onClick={() =>
-                                    move(String(selectedStore.id), nextDate)
-                                }
-                            >
-                                <ArrowRight />
-                            </Button>
+                                {storePlaceholder && (
+                                    <option value="">{storePlaceholder}</option>
+                                )}
+                                {stores.map((store) => (
+                                    <option key={store.id} value={store.id}>
+                                        {store.name}
+                                        {store.is_active ? '' : '（無効）'}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
-                    )}
-                </section>
+                        <div className="grid gap-2">
+                            <Label htmlFor="daily-date">対象日</Label>
+                            <Input
+                                id="daily-date"
+                                className="h-10"
+                                type="date"
+                                value={date}
+                                onChange={(event) =>
+                                    move(
+                                        String(selectedStore?.id ?? ''),
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </div>
+                        {selectedStore && (
+                            <div className="flex items-center justify-between gap-2 md:justify-start xl:col-span-2 xl:justify-center 2xl:col-span-1 2xl:justify-start">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="size-10"
+                                    aria-label="前日"
+                                    onClick={() =>
+                                        move(
+                                            String(selectedStore.id),
+                                            previousDate,
+                                        )
+                                    }
+                                >
+                                    <ArrowLeft />
+                                </Button>
+                                <span className="flex h-10 min-w-28 items-center justify-center text-center text-sm font-medium">
+                                    {date.replaceAll('-', '/')}（{weekday}）
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="size-10"
+                                    aria-label="翌日"
+                                    onClick={() =>
+                                        move(String(selectedStore.id), nextDate)
+                                    }
+                                >
+                                    <ArrowRight />
+                                </Button>
+                            </div>
+                        )}
+                    </section>
+
+                    {selectedStore &&
+                        selectedStore.is_active &&
+                        !isHoliday &&
+                        remainingAddableStaffs.length > 0 && (
+                            <section className="border-border bg-card grid w-full content-center gap-2 rounded-xl border p-4 shadow-sm">
+                                <Label htmlFor="replacement-staff">
+                                    交代・応援スタッフを追加
+                                </Label>
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <select
+                                        id="replacement-staff"
+                                        value={staffToAdd}
+                                        onChange={(event) =>
+                                            setStaffToAdd(event.target.value)
+                                        }
+                                        className="border-input bg-background h-10 min-w-0 flex-1 rounded-md border px-3 text-sm"
+                                    >
+                                        <option value="">スタッフを選択</option>
+                                        {remainingAddableStaffs.map((staff) => (
+                                            <option
+                                                key={staff.id}
+                                                value={staff.id}
+                                            >
+                                                {staff.name}（
+                                                {staff.employment_type_label}
+                                                ・所属：
+                                                {staff.assignment_store_names.join(
+                                                    '、',
+                                                )}
+                                                ）
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="h-10 w-full shrink-0 sm:w-auto"
+                                        disabled={!staffToAdd}
+                                        onClick={addStaff}
+                                    >
+                                        <Plus />
+                                        追加
+                                    </Button>
+                                </div>
+                                <p className="text-muted-foreground text-xs">
+                                    対象日に他店所属のスタッフも交代・応援要員として追加できます。
+                                </p>
+                            </section>
+                        )}
+                </div>
 
                 {isHoliday && (
                     <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
@@ -282,52 +342,6 @@ export default function DailyShift({
                         無効な店舗のため、過去シフトの閲覧のみ可能です。
                     </div>
                 )}
-
-                {selectedStore &&
-                    selectedStore.is_active &&
-                    !isHoliday &&
-                    remainingAddableStaffs.length > 0 && (
-                        <section className="border-border bg-card grid gap-3 rounded-xl border p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                            <div className="grid gap-2">
-                                <Label htmlFor="replacement-staff">
-                                    交代・応援スタッフを追加
-                                </Label>
-                                <select
-                                    id="replacement-staff"
-                                    value={staffToAdd}
-                                    onChange={(event) =>
-                                        setStaffToAdd(event.target.value)
-                                    }
-                                    className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
-                                >
-                                    <option value="">スタッフを選択</option>
-                                    {remainingAddableStaffs.map((staff) => (
-                                        <option key={staff.id} value={staff.id}>
-                                            {staff.name}（
-                                            {staff.employment_type_label}
-                                            ・所属：
-                                            {staff.assignment_store_names.join(
-                                                '、',
-                                            )}
-                                            ）
-                                        </option>
-                                    ))}
-                                </select>
-                                <p className="text-muted-foreground text-xs">
-                                    対象日に他店所属のスタッフも交代・応援要員として追加できます。
-                                </p>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                disabled={!staffToAdd}
-                                onClick={addStaff}
-                            >
-                                <Plus />
-                                追加
-                            </Button>
-                        </section>
-                    )}
 
                 {!selectedStore ? (
                     <Empty message="シフトを管理する店舗がありません。" />
@@ -388,7 +402,7 @@ export default function DailyShift({
                                             <td className="text-muted-foreground px-4 py-3">
                                                 {staff.employment_type_label}
                                             </td>
-                                            <td className="w-[28rem] px-4 py-3">
+                                            <td className="w-[18rem] px-4 py-3">
                                                 {staff.inconsistency ? (
                                                     <span
                                                         className="text-destructive text-sm font-medium"
@@ -416,6 +430,7 @@ export default function DailyShift({
                                                     </Badge>
                                                 ) : (
                                                     <ShiftSelect
+                                                        combined
                                                         value={values[staff.id]}
                                                         stores={stores}
                                                         selectedStoreId={
@@ -556,6 +571,7 @@ function StaffShiftCard({
                 </div>
             ) : (
                 <ShiftSelect
+                    combined
                     value={value}
                     stores={stores}
                     selectedStoreId={selectedStoreId}
@@ -599,7 +615,11 @@ function StaffState({
 }) {
     if (staff.inconsistency) return <Badge variant="destructive">要確認</Badge>;
     if (isHoliday) {
-        if (value.shift_type === 'time' || value.shift_type === 'early') {
+        if (
+            value.shift_type === 'time' ||
+            value.shift_type === 'early' ||
+            value.shift_type === 'help'
+        ) {
             return <Badge variant="outline">他店ヘルプ</Badge>;
         }
         if (value.shift_type === 'off') {

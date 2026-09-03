@@ -3,11 +3,13 @@ import { cn } from '@/lib/utils';
 
 const hourlyOptions = Array.from({ length: 24 }, (_, hour) => {
     const hourText = String(hour).padStart(2, '0');
+    const displayHour = hour === 0 ? '24' : hourText;
 
     return {
         value: `time:${hourText}:00`,
         time: `${hourText}:00`,
-        compactLabel: hourText,
+        label: `${displayHour}:00`,
+        compactLabel: displayHour,
     };
 });
 
@@ -49,9 +51,6 @@ export function shiftTimeOptions(openingTime: string, closingTime: string) {
         });
 }
 
-const isWorkShift = (type: ShiftType | null) =>
-    type === 'time' || type === 'early';
-
 export function selectableShiftStores(
     stores: StoreOption[],
     availableStoreIds: number[],
@@ -73,7 +72,7 @@ const encodeShiftKind = (value: ShiftValue): string => {
 export function encodeShiftValue(value: ShiftValue): string {
     const kind = encodeShiftKind(value);
 
-    return isWorkShift(value.shift_type)
+    return ['time', 'early', 'help'].includes(value.shift_type ?? '')
         ? `${kind}@${value.store_id ?? ''}`
         : kind;
 }
@@ -95,11 +94,68 @@ export function decodeShiftValue(value: string): ShiftValue {
     return {
         shift_type: shiftType,
         start_time: null,
-        store_id: shiftType === 'early' ? storeId : null,
+        store_id:
+            shiftType === 'early' || shiftType === 'help' ? storeId : null,
     };
 }
 
-export default function ShiftSelect({
+type ShiftSelectProps = {
+    value: ShiftValue;
+    stores: StoreOption[];
+    selectedStoreId: number;
+    availableStoreIds: number[];
+    onChange: (value: ShiftValue) => void;
+    disabled?: boolean;
+    compact?: boolean;
+    holidayHelpOnly?: boolean;
+    combined?: boolean;
+    ariaLabel: string;
+};
+
+export function shiftWorkOptions(
+    stores: StoreOption[],
+    availableStoreIds: number[],
+    selectedStoreId: number,
+    compact = false,
+) {
+    const availableStores = selectableShiftStores(stores, availableStoreIds);
+    const selectedStore = availableStores.find(
+        (store) => Number(store.id) === selectedStoreId,
+    );
+    const ownStoreOptions = selectedStore
+        ? [
+              ...shiftTimeOptions(
+                  selectedStore.opening_time,
+                  selectedStore.closing_time,
+              ).map((option) => ({
+                  value: `${option.value}@${selectedStore.id}`,
+                  label: compact ? option.compactLabel : option.label,
+              })),
+              {
+                  value: `early@${selectedStore.id}`,
+                  label: compact ? '早' : '早番',
+              },
+          ]
+        : [];
+    const helpStoreOptions = availableStores
+        .filter((store) => Number(store.id) !== selectedStoreId)
+        .map((store) => ({
+            value: `help@${store.id}`,
+            label: store.name,
+        }));
+
+    return [...ownStoreOptions, ...helpStoreOptions];
+}
+
+export default function ShiftSelect(props: ShiftSelectProps) {
+    return props.combined ? (
+        <CombinedShiftSelect {...props} />
+    ) : (
+        <SeparateShiftSelect {...props} />
+    );
+}
+
+function CombinedShiftSelect({
     value,
     stores,
     selectedStoreId,
@@ -109,17 +165,76 @@ export default function ShiftSelect({
     compact = false,
     holidayHelpOnly = false,
     ariaLabel,
-}: {
-    value: ShiftValue;
-    stores: StoreOption[];
-    selectedStoreId: number;
-    availableStoreIds: number[];
-    onChange: (value: ShiftValue) => void;
-    disabled?: boolean;
-    compact?: boolean;
-    holidayHelpOnly?: boolean;
-    ariaLabel: string;
-}) {
+}: ShiftSelectProps) {
+    const workOptions = shiftWorkOptions(
+        stores,
+        availableStoreIds,
+        selectedStoreId,
+        compact,
+    );
+    const pendingHelpAtSelectedStore =
+        value.shift_type === 'help' &&
+        Number(value.store_id) === selectedStoreId;
+
+    return (
+        <div
+            className={cn(
+                'items-center',
+                compact ? 'flex min-w-20 flex-col' : 'w-full',
+            )}
+        >
+            <select
+                aria-label={ariaLabel}
+                value={encodeShiftValue(value)}
+                disabled={disabled}
+                onChange={(event) =>
+                    onChange(decodeShiftValue(event.target.value))
+                }
+                className={cn(
+                    'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 disabled:bg-muted h-9 rounded-md border text-sm outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-70',
+                    compact ? 'w-20 px-1 text-center text-xs' : 'w-full px-3',
+                    holidayHelpOnly &&
+                        'border-orange-500 bg-orange-100 text-orange-950 dark:border-orange-400 dark:bg-orange-950 dark:text-orange-50',
+                )}
+            >
+                <option
+                    value={
+                        pendingHelpAtSelectedStore
+                            ? encodeShiftValue(value)
+                            : ''
+                    }
+                >
+                    {compact || pendingHelpAtSelectedStore ? '－' : '未設定'}
+                </option>
+                {workOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+                {!holidayHelpOnly && (
+                    <>
+                        <option value="off">{compact ? '休' : '休み'}</option>
+                        <option value="absence">
+                            {compact ? '急休' : '急な休み'}
+                        </option>
+                    </>
+                )}
+            </select>
+        </div>
+    );
+}
+
+function SeparateShiftSelect({
+    value,
+    stores,
+    selectedStoreId,
+    availableStoreIds,
+    onChange,
+    disabled = false,
+    compact = false,
+    holidayHelpOnly = false,
+    ariaLabel,
+}: ShiftSelectProps) {
     const availableStores = selectableShiftStores(stores, availableStoreIds);
     const defaultStoreId =
         value.store_id && availableStoreIds.includes(value.store_id)
@@ -135,13 +250,29 @@ export default function ShiftSelect({
         workStore?.opening_time ?? '17:00',
         workStore?.closing_time ?? '10:00',
     );
-
     const changeKind = (kind: string) => {
-        const next = decodeShiftValue(
-            isWorkShiftKind(kind) ? `${kind}@${defaultStoreId ?? ''}` : kind,
+        const workKind =
+            kind === 'early' || kind === 'help' || kind.startsWith('time:');
+        const nextStoreId =
+            kind === 'help'
+                ? (availableStores.find(
+                      (store) => Number(store.id) !== selectedStoreId,
+                  )?.id ?? null)
+                : defaultStoreId;
+        onChange(
+            decodeShiftValue(workKind ? `${kind}@${nextStoreId ?? ''}` : kind),
         );
-        onChange(next);
     };
+    const isWorkShift =
+        value.shift_type === 'time' ||
+        value.shift_type === 'early' ||
+        value.shift_type === 'help';
+    const workStores =
+        value.shift_type === 'help'
+            ? availableStores.filter(
+                  (store) => Number(store.id) !== selectedStoreId,
+              )
+            : availableStores;
 
     return (
         <div
@@ -167,10 +298,13 @@ export default function ShiftSelect({
                 <option value="">{compact ? '－' : '未設定'}</option>
                 {timeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
-                        {compact ? option.compactLabel : option.time}
+                        {compact ? option.compactLabel : option.label}
                     </option>
                 ))}
                 <option value="early">{compact ? '早' : '早番'}</option>
+                {availableStores.some(
+                    (store) => Number(store.id) !== selectedStoreId,
+                ) && <option value="help">他店ヘルプ</option>}
                 {!holidayHelpOnly && (
                     <>
                         <option value="off">{compact ? '休' : '休み'}</option>
@@ -181,7 +315,7 @@ export default function ShiftSelect({
                 )}
             </select>
 
-            {isWorkShift(value.shift_type) && (
+            {isWorkShift && (
                 <select
                     aria-label={`${ariaLabel}の勤務店舗`}
                     value={value.store_id ?? ''}
@@ -217,7 +351,7 @@ export default function ShiftSelect({
                             'border-orange-500 bg-orange-100 text-orange-950 dark:border-orange-400 dark:bg-orange-950 dark:text-orange-50',
                     )}
                 >
-                    {availableStores.map((store) => (
+                    {workStores.map((store) => (
                         <option key={store.id} value={store.id}>
                             {Number(store.id) === selectedStoreId
                                 ? compact
@@ -232,8 +366,4 @@ export default function ShiftSelect({
             )}
         </div>
     );
-}
-
-function isWorkShiftKind(kind: string) {
-    return kind === 'early' || kind.startsWith('time:');
 }

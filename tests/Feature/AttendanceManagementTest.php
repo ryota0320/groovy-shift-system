@@ -11,15 +11,42 @@ use App\Models\Staff;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\AttendanceSummaryService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
-/** Covers ATT-001 through ATT-022, ATT-024 through ATT-028 and EMP-001 through EMP-002. */
+/** Covers ATT-001 through ATT-022, ATT-024 through ATT-030, ATT-032 through ATT-037 and EMP-001 through EMP-002. */
 class AttendanceManagementTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_daily_attendance_defaults_to_the_current_business_date(): void
+    {
+        Date::setTestNow(CarbonImmutable::parse('2026-09-05 11:30:00', 'Asia/Tokyo'));
+
+        try {
+            $admin = User::factory()->create();
+            $store = Store::factory()->create();
+
+            $this->actingAs($admin)
+                ->get(route('attendance.daily', ['store_id' => $store->id]))
+                ->assertInertia(fn (Assert $page) => $page
+                    ->where('date', '2026-09-04'));
+
+            $this->actingAs($admin)
+                ->get(route('attendance.daily', [
+                    'store_id' => $store->id,
+                    'date' => '2026-09-06',
+                ]))
+                ->assertInertia(fn (Assert $page) => $page
+                    ->where('date', '2026-09-06'));
+        } finally {
+            Date::setTestNow();
+        }
+    }
 
     public function test_daily_attendance_saves_actual_datetimes_and_calculated_minutes(): void
     {
@@ -38,16 +65,56 @@ class AttendanceManagementTest extends TestCase
         $this->assertSame(255, $record->late_night_minutes);
     }
 
-    public function test_next_ten_fifteen_and_non_quarter_hour_are_rejected(): void
+    public function test_early_morning_attendance_requires_the_previous_business_date(): void
     {
         [$admin, $store, $staff] = $this->context();
 
         $this->actingAs($admin)
-            ->put(route('attendance.daily.save'), $this->payload($store, $staff, 1140, 2055))
-            ->assertSessionHasErrors('records.0.clock_out_offset_minutes');
+            ->put(route('attendance.daily.save'), [
+                'store_id' => $store->id,
+                'work_date' => '2026-09-05',
+                'holiday_confirmed' => false,
+                'records' => [[
+                    'staff_id' => $staff->id,
+                    'clock_in_offset_minutes' => 60,
+                    'clock_out_offset_minutes' => 300,
+                ]],
+            ])
+            ->assertSessionHasErrors([
+                'records.0.clock_in_offset_minutes',
+                'records.0.clock_out_offset_minutes',
+            ]);
+
+        $this->assertDatabaseMissing('attendance_records', [
+            'staff_id' => $staff->id,
+            'work_date' => '2026-09-05',
+        ]);
+    }
+
+    public function test_preparation_before_opening_and_checkout_after_next_ten_are_allowed(): void
+    {
+        [$admin, $store, $staff] = $this->context();
+
+        $this->actingAs($admin)
+            ->put(route('attendance.daily.save'), $this->payload($store, $staff, 900, 2220))
+            ->assertSessionHasNoErrors();
+
+        $record = AttendanceRecord::query()->firstOrFail();
+        $this->assertSame('2026-09-04 15:00:00', $record->clock_in_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-09-05 13:00:00', $record->clock_out_at->format('Y-m-d H:i:s'));
+        $this->assertSame(1320, $record->working_minutes);
+    }
+
+    public function test_non_quarter_hour_and_twenty_four_hour_shift_are_rejected(): void
+    {
+        [$admin, $store, $staff] = $this->context();
+
         $this->actingAs($admin)
             ->put(route('attendance.daily.save'), $this->payload($store, $staff, 1141, 1380))
             ->assertSessionHasErrors('records.0.clock_in_offset_minutes');
+        $this->actingAs($admin)
+            ->put(route('attendance.daily.save'), $this->payload($store, $staff, 1140, 2580))
+            ->assertSessionHasErrors('records.0.clock_out_offset_minutes');
 
         $this->assertDatabaseCount('attendance_records', 0);
     }
@@ -502,16 +569,16 @@ class AttendanceManagementTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->put(route('attendance.daily.save'), $this->payload($store, $employee, 540, 1020))
+            ->put(route('attendance.daily.save'), $this->payload($store, $employee, 1020, 1500))
             ->assertSessionHasNoErrors();
         AttendanceRecord::factory()->create([
             'staff_id' => $employee->id,
             'store_id' => $otherStore->id,
             'work_date' => '2026-09-05',
-            'clock_in_at' => '2026-09-05 09:00:00',
-            'clock_out_at' => '2026-09-05 17:00:00',
+            'clock_in_at' => '2026-09-05 17:00:00',
+            'clock_out_at' => '2026-09-06 01:00:00',
             'working_minutes' => 480,
-            'late_night_minutes' => 0,
+            'late_night_minutes' => 180,
         ]);
 
         $summaries = app(AttendanceSummaryService::class);

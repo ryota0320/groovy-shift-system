@@ -2,18 +2,43 @@ import type { AttendanceValue, DailyAttendanceStaff } from '@/types/attendance';
 
 export type AttendanceValues = Record<number, AttendanceValue>;
 
-const FIRST_ATTENDANCE_OFFSET_MINUTES = 17 * 60;
-const LAST_ATTENDANCE_OFFSET_MINUTES = 34 * 60;
+export const BUSINESS_DAY_CUTOFF_MINUTES = 12 * 60;
+export const MAX_CLOCK_IN_OFFSET_MINUTES =
+    BUSINESS_DAY_CUTOFF_MINUTES + 24 * 60 - 15;
+export const MAX_WORKING_MINUTES = 24 * 60;
 
-export const attendanceTimeOptions = Array.from(
-    {
-        length:
-            (LAST_ATTENDANCE_OFFSET_MINUTES - FIRST_ATTENDANCE_OFFSET_MINUTES) /
-                15 +
-            1,
-    },
-    (_, index) => FIRST_ATTENDANCE_OFFSET_MINUTES + index * 15,
-);
+const timeInputMinutes = (value: string) => {
+    const [hour, minute] = value.split(':').map(Number);
+
+    return hour * 60 + minute;
+};
+
+export const clockInOffsetFromTimeInput = (value: string) => {
+    const minutes = timeInputMinutes(value);
+
+    return minutes < BUSINESS_DAY_CUTOFF_MINUTES ? minutes + 24 * 60 : minutes;
+};
+
+export const clockOutOffsetFromTimeInput = (
+    value: string,
+    clockInOffset: number,
+) => {
+    let offset = timeInputMinutes(value);
+
+    while (offset <= clockInOffset) {
+        offset += 24 * 60;
+    }
+
+    return offset;
+};
+
+export const offsetInputValue = (offset: number) => {
+    const normalized = offset % (24 * 60);
+    const hour = Math.floor(normalized / 60);
+    const minute = normalized % 60;
+
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+};
 
 export const attendanceValuesFromStaffs = (
     staffs: DailyAttendanceStaff[],
@@ -50,7 +75,16 @@ export const calculateAttendancePreview = (
     const clockIn = value.clock_in_offset_minutes;
     const clockOut = value.clock_out_offset_minutes;
 
-    if (clockIn === null || clockOut === null || clockOut <= clockIn) {
+    if (
+        clockIn === null ||
+        clockOut === null ||
+        clockIn < BUSINESS_DAY_CUTOFF_MINUTES ||
+        clockIn > MAX_CLOCK_IN_OFFSET_MINUTES ||
+        clockIn % 15 !== 0 ||
+        clockOut % 15 !== 0 ||
+        clockOut <= clockIn ||
+        clockOut - clockIn >= MAX_WORKING_MINUTES
+    ) {
         return {
             valid: false,
             workingMinutes: 0,

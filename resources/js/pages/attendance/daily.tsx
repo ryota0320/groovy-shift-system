@@ -26,12 +26,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-    attendanceTimeOptions,
     attendanceValuesFromStaffs,
     calculateAttendancePreview,
     changedAttendanceRecords,
+    clockInOffsetFromTimeInput,
+    clockOutOffsetFromTimeInput,
     hasUnsavedAttendanceChanges,
-    offsetLabel,
+    offsetInputValue,
 } from '@/lib/attendance-form';
 import type { AttendanceValues } from '@/lib/attendance-form';
 import { storeSelectionPlaceholder } from '@/lib/master-options';
@@ -374,7 +375,7 @@ export default function DailyAttendance({
             <div className="flex h-full min-w-0 flex-1 flex-col gap-5 p-4 pb-24 md:p-6 md:pb-6">
                 <MasterPageHeader
                     title="日次勤怠"
-                    description="所属スタッフを含めて営業日の勤怠を登録し、急な休みや代替勤務も設定できます。"
+                    description="時刻は15分単位で手入力できます。12:00を営業日の切替とし、0:00〜11:59は翌日の実日時として扱います。"
                 />
 
                 <section className="border-border bg-card grid gap-4 rounded-xl border p-4 shadow-sm sm:grid-cols-[minmax(180px,1fr)_minmax(170px,1fr)_auto] sm:items-end">
@@ -752,25 +753,37 @@ function AttendanceCard({
                 </div>
             ) : (
                 <div className="mt-4 grid grid-cols-2 gap-3">
-                    <TimeSelect
+                    <TimeInput
                         label="実出勤"
                         ariaLabel={`${staff.name}の実出勤`}
+                        kind="clock-in"
                         value={value.clock_in_offset_minutes}
-                        maximum={2025}
                         disabled={!staff.editable}
                         onChange={(next) =>
                             onChange({
                                 ...value,
                                 clock_in_offset_minutes: next,
+                                clock_out_offset_minutes:
+                                    next !== null &&
+                                    value.clock_out_offset_minutes !== null &&
+                                    value.clock_out_offset_minutes > next &&
+                                    value.clock_out_offset_minutes - next <
+                                        24 * 60
+                                        ? value.clock_out_offset_minutes
+                                        : null,
                             })
                         }
                     />
-                    <TimeSelect
+                    <TimeInput
                         label="実退勤"
                         ariaLabel={`${staff.name}の実退勤`}
+                        kind="clock-out"
                         value={value.clock_out_offset_minutes}
-                        maximum={2040}
-                        disabled={!staff.editable}
+                        clockInOffset={value.clock_in_offset_minutes}
+                        disabled={
+                            !staff.editable ||
+                            value.clock_in_offset_minutes === null
+                        }
                         onChange={(next) =>
                             onChange({
                                 ...value,
@@ -876,25 +889,43 @@ function AttendanceTable({
                                     {staff.shift.display}
                                 </td>
                                 <td className="w-36 px-4 py-3">
-                                    <TimeSelect
+                                    <TimeInput
                                         ariaLabel={`${staff.name}の実出勤`}
+                                        kind="clock-in"
                                         value={value.clock_in_offset_minutes}
-                                        maximum={2025}
                                         disabled={!staff.editable}
                                         onChange={(next) =>
                                             onChange(staff.staff_id, {
                                                 ...value,
                                                 clock_in_offset_minutes: next,
+                                                clock_out_offset_minutes:
+                                                    next !== null &&
+                                                    value.clock_out_offset_minutes !==
+                                                        null &&
+                                                    value.clock_out_offset_minutes >
+                                                        next &&
+                                                    value.clock_out_offset_minutes -
+                                                        next <
+                                                        24 * 60
+                                                        ? value.clock_out_offset_minutes
+                                                        : null,
                                             })
                                         }
                                     />
                                 </td>
                                 <td className="w-36 px-4 py-3">
-                                    <TimeSelect
+                                    <TimeInput
                                         ariaLabel={`${staff.name}の実退勤`}
+                                        kind="clock-out"
                                         value={value.clock_out_offset_minutes}
-                                        maximum={2040}
-                                        disabled={!staff.editable}
+                                        clockInOffset={
+                                            value.clock_in_offset_minutes
+                                        }
+                                        disabled={
+                                            !staff.editable ||
+                                            value.clock_in_offset_minutes ===
+                                                null
+                                        }
                                         onChange={(next) =>
                                             onChange(staff.staff_id, {
                                                 ...value,
@@ -947,46 +978,52 @@ function AttendanceTable({
     );
 }
 
-function TimeSelect({
+function TimeInput({
     label,
     ariaLabel,
+    kind,
     value,
-    maximum,
+    clockInOffset,
     disabled,
     onChange,
 }: {
     label?: string;
     ariaLabel: string;
+    kind: 'clock-in' | 'clock-out';
     value: number | null;
-    maximum: number;
+    clockInOffset?: number | null;
     disabled: boolean;
     onChange: (value: number | null) => void;
 }) {
     return (
         <label className="grid gap-1.5 text-sm">
             {label && <span className="text-muted-foreground">{label}</span>}
-            <select
-                value={value ?? ''}
+            <input
+                type="time"
+                step={15 * 60}
+                value={value === null ? '' : offsetInputValue(value)}
                 disabled={disabled}
                 aria-label={ariaLabel}
-                onChange={(event) =>
-                    onChange(
-                        event.target.value === ''
-                            ? null
-                            : Number(event.target.value),
-                    )
-                }
-                className="border-input bg-background h-10 rounded-md border px-2 text-sm disabled:opacity-60"
-            >
-                <option value="">未入力</option>
-                {attendanceTimeOptions
-                    .filter((offset) => offset <= maximum)
-                    .map((offset) => (
-                        <option key={offset} value={offset}>
-                            {offsetLabel(offset)}
-                        </option>
-                    ))}
-            </select>
+                onChange={(event) => {
+                    const next = event.target.value;
+                    if (next === '') {
+                        onChange(null);
+                        return;
+                    }
+
+                    if (kind === 'clock-in') {
+                        onChange(clockInOffsetFromTimeInput(next));
+                        return;
+                    }
+
+                    if (clockInOffset !== null && clockInOffset !== undefined) {
+                        onChange(
+                            clockOutOffsetFromTimeInput(next, clockInOffset),
+                        );
+                    }
+                }}
+                className="border-input bg-background h-10 rounded-md border px-2 text-sm invalid:border-red-500 disabled:opacity-60"
+            />
         </label>
     );
 }
@@ -1105,7 +1142,9 @@ function RowAction({
 function canMarkAbsent(staff: DailyAttendanceStaff) {
     return (
         staff.source === 'scheduled' &&
-        (staff.shift.type === 'time' || staff.shift.type === 'early') &&
+        (staff.shift.type === 'time' ||
+            staff.shift.type === 'early' ||
+            staff.shift.type === 'help') &&
         staff.attendance === null &&
         staff.editable
     );

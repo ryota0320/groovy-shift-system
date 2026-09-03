@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Http\Controllers\AggregationController;
+use App\Http\Controllers\AggregationExportController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\DashboardController;
@@ -13,8 +15,10 @@ use App\Http\Controllers\Master\StaffUserController;
 use App\Http\Controllers\Master\StoreController;
 use App\Http\Controllers\Master\StoreHolidayController;
 use App\Http\Controllers\PayrollController;
+use App\Http\Controllers\PayrollStatementController;
 use App\Http\Controllers\SelectedStoreController;
 use App\Http\Controllers\ShiftController;
+use App\Http\Controllers\ShiftPngController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => auth()->check()
@@ -72,6 +76,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('shifts/monthly', [ShiftController::class, 'monthly'])
             ->name('shifts.monthly');
+        Route::get('shifts/monthly.png', ShiftPngController::class)
+            ->name('shifts.monthly.png');
         Route::get('shifts/daily', [ShiftController::class, 'daily'])
             ->name('shifts.daily');
         Route::post('shifts', [ShiftController::class, 'store'])
@@ -80,6 +86,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('shifts.cell.save');
         Route::put('shifts/monthly/order', [ShiftController::class, 'saveMonthlyOrder'])
             ->name('shifts.monthly.order.save');
+        Route::post('shifts/monthly/staffs', [ShiftController::class, 'addMonthlyStaff'])
+            ->name('shifts.monthly.staffs.store');
+        Route::delete('shifts/monthly/staffs', [ShiftController::class, 'removeMonthlyStaff'])
+            ->name('shifts.monthly.staffs.destroy');
         Route::put('shifts/daily', [ShiftController::class, 'saveDaily'])
             ->name('shifts.daily.save');
 
@@ -91,10 +101,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('attendance.destroy');
 
         Route::get('payrolls', [PayrollController::class, 'index'])->name('payrolls.index');
+        Route::get('aggregations', [AggregationController::class, 'index'])->name('aggregations.index');
+        Route::get('aggregations.xlsx', AggregationExportController::class)->name('aggregations.xlsx');
         Route::post('payrolls/calculate-all', [PayrollController::class, 'calculateAll'])
             ->name('payrolls.calculate-all');
         Route::post('payrolls/{staff}/calculate', [PayrollController::class, 'calculate'])
             ->name('payrolls.calculate');
+        Route::get('payrolls/{staff}/statement', [PayrollStatementController::class, 'show'])
+            ->name('payrolls.statement');
+        Route::get('payroll-statements.zip', [PayrollStatementController::class, 'bulk'])
+            ->name('payrolls.statements.bulk');
         Route::put('commissions', [CommissionController::class, 'update'])
             ->name('commissions.update');
         Route::delete('commissions/{staff}/{year}/{month}', [CommissionController::class, 'destroy'])

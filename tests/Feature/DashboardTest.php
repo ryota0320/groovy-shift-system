@@ -7,14 +7,43 @@ use App\Models\Shift;
 use App\Models\Staff;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\BusinessDateService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Date;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
-/** Covers DASH-001 through DASH-003 and DASH-005. */
+/** Covers DASH-001 through DASH-003 and DASH-005 through DASH-007. */
 class DashboardTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_dashboard_uses_the_current_business_date_before_noon(): void
+    {
+        Date::setTestNow(CarbonImmutable::parse('2026-09-05 11:30:00', 'Asia/Tokyo'));
+
+        try {
+            $user = User::factory()->create();
+            $store = Store::factory()->create();
+            $staff = Staff::factory()->create();
+            Shift::query()->create([
+                'staff_id' => $staff->id,
+                'store_id' => $store->id,
+                'shift_date' => '2026-09-04',
+                'shift_type' => 'time',
+                'start_time' => '19:00',
+            ]);
+
+            $this->actingAs($user)
+                ->get(route('dashboard'))
+                ->assertInertia(fn (Assert $page) => $page
+                    ->where('today', '2026-09-04')
+                    ->where('today_shift_count', 1));
+        } finally {
+            Date::setTestNow();
+        }
+    }
 
     public function test_guests_are_redirected_to_the_login_page()
     {
@@ -54,6 +83,7 @@ class DashboardTest extends TestCase
     public function test_selected_store_is_persisted_and_controls_dashboard_and_shift_pages(): void
     {
         $user = User::factory()->create();
+        $businessDate = app(BusinessDateService::class)->current();
         Store::factory()->create(['name' => 'A店舗']);
         $selectedStore = Store::factory()->create(['name' => 'B店舗']);
         $staff = Staff::factory()->create([
@@ -63,7 +93,7 @@ class DashboardTest extends TestCase
         Shift::query()->create([
             'staff_id' => $staff->id,
             'store_id' => $selectedStore->id,
-            'shift_date' => today()->toDateString(),
+            'shift_date' => $businessDate->toDateString(),
             'shift_type' => 'time',
             'start_time' => '19:00',
         ]);
@@ -82,12 +112,12 @@ class DashboardTest extends TestCase
                 ->where('today_shift_count', 1));
 
         $this->actingAs($user)
-            ->get(route('shifts.monthly', ['month' => today()->format('Y-m')]))
+            ->get(route('shifts.monthly', ['month' => $businessDate->format('Y-m')]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('selected_store.id', $selectedStore->id));
 
         $this->actingAs($user)
-            ->get(route('shifts.daily', ['date' => today()->toDateString()]))
+            ->get(route('shifts.daily', ['date' => $businessDate->toDateString()]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('selected_store.id', $selectedStore->id));
     }
@@ -95,6 +125,7 @@ class DashboardTest extends TestCase
     public function test_attendance_missing_count_excludes_staff_with_today_attendance(): void
     {
         $user = User::factory()->create();
+        $businessDate = app(BusinessDateService::class)->current();
         $store = Store::factory()->create(['name' => 'A店舗']);
         $otherStore = Store::factory()->create(['name' => 'Z店舗']);
         $missingStaff = Staff::factory()->create();
@@ -106,14 +137,14 @@ class DashboardTest extends TestCase
         foreach ([$missingStaff, $attendedStaff, $offStaff, $otherStoreStaff, $unscheduledStaff] as $staff) {
             $staff->storeAssignments()->create([
                 'store_id' => $store->id,
-                'effective_from' => today()->subMonth()->toDateString(),
+                'effective_from' => $businessDate->subMonth()->toDateString(),
             ]);
         }
         foreach ([$missingStaff, $attendedStaff] as $staff) {
             Shift::query()->create([
                 'staff_id' => $staff->id,
                 'store_id' => $store->id,
-                'shift_date' => today()->toDateString(),
+                'shift_date' => $businessDate->toDateString(),
                 'shift_type' => 'time',
                 'start_time' => '19:00',
             ]);
@@ -121,19 +152,19 @@ class DashboardTest extends TestCase
         Shift::query()->create([
             'staff_id' => $offStaff->id,
             'store_id' => null,
-            'shift_date' => today()->toDateString(),
+            'shift_date' => $businessDate->toDateString(),
             'shift_type' => 'off',
         ]);
         Shift::query()->create([
             'staff_id' => $otherStoreStaff->id,
             'store_id' => $otherStore->id,
-            'shift_date' => today()->toDateString(),
-            'shift_type' => 'early',
+            'shift_date' => $businessDate->toDateString(),
+            'shift_type' => 'help',
         ]);
         AttendanceRecord::factory()->create([
             'staff_id' => $attendedStaff->id,
             'store_id' => $store->id,
-            'work_date' => today()->toDateString(),
+            'work_date' => $businessDate->toDateString(),
         ]);
 
         $this->actingAs($user)

@@ -8,13 +8,18 @@ FROM php:8.4-fpm-bookworm AS app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        fonts-ipafont-gothic \
         git \
+        libfreetype6-dev \
         libicu-dev \
+        libjpeg62-turbo-dev \
         libpng-dev \
         libonig-dev \
         libsqlite3-dev \
         libzip-dev \
+        poppler-utils \
         unzip \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
         gd \

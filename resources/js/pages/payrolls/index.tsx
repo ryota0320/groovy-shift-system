@@ -3,6 +3,7 @@ import {
     ArrowLeft,
     ArrowRight,
     Calculator,
+    Download,
     RefreshCw,
     Save,
     Trash2,
@@ -46,6 +47,13 @@ export default function PayrollIndex({
     );
     const [calculatingId, setCalculatingId] = useState<number | null>(null);
     const [calculatingAll, setCalculatingAll] = useState(false);
+    const canDownloadAll =
+        staffs.length > 0 &&
+        staffs.every(
+            (staff) =>
+                staff.payroll !== null && !staff.payroll.needs_recalculation,
+        );
+    const outputQuery = `year=${year}&month=${month}`;
 
     useEffect(() => setCommissions(commissionValues(staffs)), [staffs]);
 
@@ -156,15 +164,41 @@ export default function PayrollIndex({
                             </Button>
                         </div>
                     </div>
-                    <Button
-                        disabled={calculatingAll || staffs.length === 0}
-                        onClick={calculateAll}
-                    >
-                        <RefreshCw
-                            className={calculatingAll ? 'animate-spin' : ''}
-                        />
-                        {calculatingAll ? '一括計算中…' : '全員を再計算'}
-                    </Button>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                            variant="outline"
+                            disabled={!canDownloadAll}
+                            asChild={canDownloadAll}
+                            title={
+                                canDownloadAll
+                                    ? undefined
+                                    : '全員の給与計算を完了してから出力してください'
+                            }
+                        >
+                            {canDownloadAll ? (
+                                <a
+                                    href={`/payroll-statements.zip?${outputQuery}`}
+                                >
+                                    <Download />
+                                    給与明細一括ZIP
+                                </a>
+                            ) : (
+                                <span>
+                                    <Download />
+                                    給与明細一括ZIP
+                                </span>
+                            )}
+                        </Button>
+                        <Button
+                            disabled={calculatingAll || staffs.length === 0}
+                            onClick={calculateAll}
+                        >
+                            <RefreshCw
+                                className={calculatingAll ? 'animate-spin' : ''}
+                            />
+                            {calculatingAll ? '一括計算中…' : '全員を再計算'}
+                        </Button>
+                    </div>
                 </section>
 
                 {staffs.length === 0 ? (
@@ -177,6 +211,8 @@ export default function PayrollIndex({
                             {staffs.map((staff) => (
                                 <PayrollCard
                                     key={staff.staff_id}
+                                    year={year}
+                                    month={month}
                                     staff={staff}
                                     commission={
                                         commissions[staff.staff_id] ?? '0'
@@ -337,23 +373,43 @@ export default function PayrollIndex({
                                                         : '—'}
                                                 </td>
                                                 <td className="px-3 py-3">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        disabled={
-                                                            calculatingId ===
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            disabled={
+                                                                calculatingId ===
+                                                                staff.staff_id
+                                                            }
+                                                            onClick={() =>
+                                                                calculate(staff)
+                                                            }
+                                                        >
+                                                            <Calculator />
+                                                            {calculatingId ===
                                                             staff.staff_id
-                                                        }
-                                                        onClick={() =>
-                                                            calculate(staff)
-                                                        }
-                                                    >
-                                                        <Calculator />
-                                                        {calculatingId ===
-                                                        staff.staff_id
-                                                            ? '計算中…'
-                                                            : '再計算'}
-                                                    </Button>
+                                                                ? '計算中…'
+                                                                : '再計算'}
+                                                        </Button>
+                                                        {payroll &&
+                                                            !payroll.needs_recalculation && (
+                                                                <Button
+                                                                    size="icon"
+                                                                    variant="ghost"
+                                                                    asChild
+                                                                    title="給与明細PDF"
+                                                                >
+                                                                    <a
+                                                                        href={`/payrolls/${staff.staff_id}/statement?${outputQuery}`}
+                                                                    >
+                                                                        <Download />
+                                                                        <span className="sr-only">
+                                                                            給与明細PDF
+                                                                        </span>
+                                                                    </a>
+                                                                </Button>
+                                                            )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
@@ -370,6 +426,8 @@ export default function PayrollIndex({
 
 type RowActions = {
     staff: PayrollStaff;
+    year: number;
+    month: number;
     commission: string;
     setCommission: (value: string) => void;
     savingCommission: boolean;
@@ -416,6 +474,16 @@ function PayrollCard(props: RowActions) {
                     <Calculator />
                     {props.calculating ? '計算中…' : '給与を再計算'}
                 </Button>
+                {payroll && !payroll.needs_recalculation && (
+                    <Button variant="outline" asChild>
+                        <a
+                            href={`/payrolls/${props.staff.staff_id}/statement?year=${props.year}&month=${props.month}`}
+                        >
+                            <Download />
+                            給与明細PDF
+                        </a>
+                    </Button>
+                )}
             </div>
         </article>
     );

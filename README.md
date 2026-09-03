@@ -21,6 +21,7 @@
 - Tailwind CSS 4 / Vite 8
 - MySQL 8.4
 - Docker Compose（PHP-FPM、Nginx、MySQL、Node/Vite、Laravel Scheduler）
+- Dompdf / PhpSpreadsheet / GD（給与PDF、集計XLSX、シフトPNG）
 
 ## 必要なもの
 

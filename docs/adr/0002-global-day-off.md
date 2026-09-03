@@ -17,7 +17,7 @@
 `shifts`をスタッフ×営業日で一意にし、`off`行は店舗を持たない。
 
 ```text
-time/early: store_id = 勤務店舗
+time/early/help: store_id = 勤務店舗
 off:        store_id = NULL
 ```
 
@@ -34,5 +34,5 @@ UNIQUE(`staff_id`, `shift_date`)を設定する。
 
 - 店舗別シフト画面では、対象スタッフの`store_id = NULL`の休みも読み込んで表示する。
 - `off`登録時に店舗所属を要求しないが、対象日の在籍は検証する。
-- `time`/`early`では店舗、在籍、所属、店休日を検証する。
+- `time`/`early`/`help`では店舗、在籍、所属、店休日を検証する。
 - DBのCHECK制約とLaravel側検証を併用する。

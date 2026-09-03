@@ -4,6 +4,7 @@ import {
     encodeShiftValue,
     selectableShiftStores,
     shiftTimeOptions,
+    shiftWorkOptions,
 } from '@/components/shift-select';
 import {
     selectableHistoryStores,
@@ -131,5 +132,44 @@ describe('Phase 2 daily shift state', () => {
             '01:00',
             '02:00',
         ]);
+        expect(options.find((option) => option.time === '00:00')).toMatchObject(
+            {
+                label: '24:00',
+                compactLabel: '24',
+            },
+        );
+    });
+
+    it('SFT-029: shows own-store times and other stores without times', () => {
+        const helpStore = {
+            id: 3,
+            name: 'ヘルプ店',
+            opening_time: '19:00',
+            closing_time: '01:00',
+            is_active: true,
+        };
+        const options = shiftWorkOptions(
+            [...stores, helpStore],
+            [1, 3],
+            1,
+            true,
+        );
+
+        expect(options).toContainEqual({
+            value: 'time:19:00@1',
+            label: '19',
+        });
+        expect(options).toContainEqual({
+            value: 'help@3',
+            label: 'ヘルプ店',
+        });
+        expect(options.some((option) => option.label === 'ヘルプ店 19')).toBe(
+            false,
+        );
+        expect(decodeShiftValue('help@3')).toEqual({
+            shift_type: 'help',
+            start_time: null,
+            store_id: 3,
+        });
     });
 });

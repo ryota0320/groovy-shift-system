@@ -7,6 +7,7 @@ use App\Models\AttendanceRecord;
 use App\Models\Store;
 use App\Services\AttendanceCalendarService;
 use App\Services\AttendanceSaveService;
+use App\Services\BusinessDateService;
 use App\Services\SelectedStoreService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ class AttendanceController extends Controller
         private AttendanceCalendarService $calendar,
         private AttendanceSaveService $attendance,
         private SelectedStoreService $selectedStores,
+        private BusinessDateService $businessDates,
     ) {}
 
     public function daily(Request $request): Response
@@ -29,7 +31,7 @@ class AttendanceController extends Controller
             'date' => ['nullable', 'date'],
         ]);
         $store = $this->selectedStores->resolveForPage($request, $validated['store_id'] ?? null);
-        $date = Carbon::parse($validated['date'] ?? today())->startOfDay();
+        $date = Carbon::parse($validated['date'] ?? $this->businessDates->current())->startOfDay();
         $calendar = $store === null
             ? [
                 'is_holiday' => false,

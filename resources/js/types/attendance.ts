@@ -15,7 +15,7 @@ export type AttendancePayload = {
 };
 
 export type AttendanceShift = {
-    type: 'time' | 'early' | 'off' | 'absence' | null;
+    type: 'time' | 'early' | 'help' | 'off' | 'absence' | null;
     display: string;
     start_offset_minutes: number | null;
 };

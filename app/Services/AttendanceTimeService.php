@@ -8,18 +8,35 @@ use InvalidArgumentException;
 
 class AttendanceTimeService
 {
-    public const MAX_OFFSET_MINUTES = 34 * 60;
+    public const BUSINESS_DAY_CUTOFF_MINUTES = 12 * 60;
+
+    public const MAX_CLOCK_IN_OFFSET_MINUTES = self::BUSINESS_DAY_CUTOFF_MINUTES + (24 * 60) - 15;
+
+    public const MAX_WORKING_MINUTES = 24 * 60;
+
+    public const MAX_CLOCK_OUT_OFFSET_MINUTES = self::MAX_CLOCK_IN_OFFSET_MINUTES + self::MAX_WORKING_MINUTES - 15;
 
     public function calculate(
         string $workDate,
         int $clockInOffsetMinutes,
         int $clockOutOffsetMinutes,
     ): AttendanceTimeResult {
-        $this->validateOffset($clockInOffsetMinutes, false);
-        $this->validateOffset($clockOutOffsetMinutes, true);
+        $this->validateQuarterHour($clockInOffsetMinutes);
+        $this->validateQuarterHour($clockOutOffsetMinutes);
+
+        if (
+            $clockInOffsetMinutes < self::BUSINESS_DAY_CUTOFF_MINUTES
+            || $clockInOffsetMinutes > self::MAX_CLOCK_IN_OFFSET_MINUTES
+        ) {
+            throw new InvalidArgumentException('実出勤は営業日当日12:00から翌11:45までの15分単位で指定してください。');
+        }
 
         if ($clockOutOffsetMinutes <= $clockInOffsetMinutes) {
             throw new InvalidArgumentException('退勤時刻は出勤時刻より後にしてください。');
+        }
+
+        if ($clockOutOffsetMinutes - $clockInOffsetMinutes >= self::MAX_WORKING_MINUTES) {
+            throw new InvalidArgumentException('1回の勤務時間は24時間未満にしてください。');
         }
 
         $startOfWorkDate = CarbonImmutable::parse($workDate, config('app.timezone'))->startOfDay();
@@ -33,23 +50,17 @@ class AttendanceTimeService
         return new AttendanceTimeResult(
             $clockInAt,
             $clockOutAt,
-            $clockInOffsetMinutes === $clockOutOffsetMinutes
-                ? 0
-                : $clockOutOffsetMinutes - $clockInOffsetMinutes,
+            $clockOutOffsetMinutes - $clockInOffsetMinutes,
             $overlapEnd->greaterThan($overlapStart)
                 ? (int) $overlapStart->diffInMinutes($overlapEnd)
                 : 0,
         );
     }
 
-    private function validateOffset(int $offset, bool $allowsUpperBoundary): void
+    private function validateQuarterHour(int $offset): void
     {
-        $maximum = $allowsUpperBoundary
-            ? self::MAX_OFFSET_MINUTES
-            : self::MAX_OFFSET_MINUTES - 15;
-
-        if ($offset < 0 || $offset > $maximum || $offset % 15 !== 0) {
-            throw new InvalidArgumentException('出退勤は営業日当日から翌10:00までの15分単位で指定してください。');
+        if ($offset < 0 || $offset % 15 !== 0) {
+            throw new InvalidArgumentException('出退勤は15分単位で指定してください。');
         }
     }
 }

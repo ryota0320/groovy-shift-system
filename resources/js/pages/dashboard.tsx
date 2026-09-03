@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import {
     ArrowRight,
+    BarChart3,
     CalendarDays,
     Clock3,
     Store,
@@ -201,6 +202,14 @@ export default function Dashboard({
                                     >
                                         今日の勤怠
                                         <Clock3 />
+                                    </Link>
+                                </Button>
+                                <Button variant="outline" asChild>
+                                    <Link
+                                        href={`/aggregations?store_id=${selectedStore.id}&year=${today.slice(0, 4)}&month=${Number(today.slice(5, 7))}`}
+                                    >
+                                        月次集計
+                                        <BarChart3 />
                                     </Link>
                                 </Button>
                                 <Button asChild>

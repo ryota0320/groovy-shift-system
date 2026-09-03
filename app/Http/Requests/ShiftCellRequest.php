@@ -48,7 +48,7 @@ class ShiftCellRequest extends FormRequest
         $timeField = $prefix.'start_time';
         $storeField = $prefix.'work_store_id';
 
-        if ($type === ShiftType::Time || $type === ShiftType::Early) {
+        if (in_array($type, [ShiftType::Time, ShiftType::Early, ShiftType::Help], true)) {
             if (! is_numeric($workStoreId) || (int) $workStoreId < 1) {
                 $validator->errors()->add($storeField, '勤務店舗を選択してください。');
             }
@@ -65,7 +65,7 @@ class ShiftCellRequest extends FormRequest
         }
 
         if ($startTime !== null && $startTime !== '') {
-            $validator->errors()->add($timeField, '早番・休み・急な休み・未設定では開始時刻を指定できません。');
+            $validator->errors()->add($timeField, '早番・他店ヘルプ・休み・急な休み・未設定では開始時刻を指定できません。');
         }
     }
 }

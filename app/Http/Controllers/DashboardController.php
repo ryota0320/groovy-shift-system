@@ -6,6 +6,7 @@ use App\Enums\ShiftType;
 use App\Models\Shift;
 use App\Models\Staff;
 use App\Models\Store;
+use App\Services\BusinessDateService;
 use App\Services\SelectedStoreService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -14,10 +15,13 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, SelectedStoreService $selectedStores): Response
-    {
+    public function __invoke(
+        Request $request,
+        SelectedStoreService $selectedStores,
+        BusinessDateService $businessDates,
+    ): Response {
         $selectedStore = $selectedStores->current($request);
-        $today = today();
+        $today = $businessDates->current();
         $date = $today->toDateString();
         $weekday = ['日', '月', '火', '水', '木', '金', '土'][$today->dayOfWeek];
         $todayShiftCount = 0;
@@ -47,7 +51,7 @@ class DashboardController extends Controller
             $workingShiftStaffIds = Shift::query()
                 ->where('store_id', $selectedStore->id)
                 ->whereDate('shift_date', $date)
-                ->whereIn('shift_type', [ShiftType::Time->value, ShiftType::Early->value])
+                ->whereIn('shift_type', [ShiftType::Time->value, ShiftType::Early->value, ShiftType::Help->value])
                 ->pluck('staff_id');
             $assignedShifts = Shift::query()
                 ->whereIn('staff_id', $assignedStaffIds)
@@ -66,7 +70,7 @@ class DashboardController extends Controller
                 ->whereIn('shift_type', [ShiftType::Off, ShiftType::Absence])
                 ->count();
             $otherStoreCount = $assignedShifts
-                ->whereIn('shift_type', [ShiftType::Time, ShiftType::Early])
+                ->whereIn('shift_type', [ShiftType::Time, ShiftType::Early, ShiftType::Help])
                 ->where('store_id', '!=', $selectedStore->id)
                 ->count();
             $unscheduledCount = $assignedStaffIds

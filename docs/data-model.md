@@ -1,7 +1,7 @@
 # データモデル
 
-- 文書状態: 実装前設計
-- 最終更新日: 2026-09-03
+- 文書状態: 実装反映済み
+- 最終更新日: 2026-09-04
 - 関連文書: [要件定義](requirements.md)、[計算ルール](calculation-rules.md)
 
 本書は論理データモデルと重要制約を定義する。実際のMigrationではLaravelとMySQLの慣例に合わせて型、制約名、タイムスタンプ等を調整できるが、業務上の一意性と履歴性を失ってはならない。
@@ -141,6 +141,25 @@ stores 1 ── * store_holidays
 - UNIQUE(`store_id`, `staff_id`)
 - INDEX(`store_id`, `position`)
 
+### 5.2.2 monthly_shift_staff_additions
+
+他店所属スタッフを月間シフトへ明示的に追加した状態を、表示店舗と対象月ごとに保持する。通常の店舗所属とは別であり、翌月へ自動継続しない。
+
+| カラム     | 概要                              |
+| ---------- | --------------------------------- |
+| id         | 主キー                            |
+| store_id   | 月間シフトの表示対象店舗          |
+| staff_id   | 追加する他店所属スタッフ          |
+| month      | 対象月の月初日                    |
+| position   | 追加スタッフ内の表示位置、0始まり |
+| timestamps | 作成・更新日時                    |
+
+制約:
+
+- UNIQUE(`store_id`, `staff_id`, `month`)
+- INDEX(`store_id`, `month`, `position`)
+- 対象月に在籍し、有効な店舗所属があるスタッフだけを追加可能
+
 ### 5.3 staff_wage_rates
 
 | カラム                | 概要                    |
@@ -219,15 +238,15 @@ stores 1 ── * store_holidays
 
 「休」と「急な休み」を全店舗共通状態として一意に表現するため、`off`と`absence`では`store_id = NULL`とする。詳細は[ADR-0002](adr/0002-global-day-off.md)を参照する。
 
-| カラム              | 概要                                       |
-| ------------------- | ------------------------------------------ |
-| id                  | 主キー                                     |
-| staff_id            | スタッフ                                   |
-| store_id nullable   | `time`/`early`の勤務店舗。休暇種別ではNULL |
-| shift_date          | 営業日                                     |
-| shift_type          | `time` / `early` / `off` / `absence`       |
-| start_time nullable | `time`だけ必須                             |
-| timestamps          | 作成・更新日時                             |
+| カラム              | 概要                                              |
+| ------------------- | ------------------------------------------------- |
+| id                  | 主キー                                            |
+| staff_id            | スタッフ                                          |
+| store_id nullable   | `time`/`early`/`help`の勤務店舗。休暇種別ではNULL |
+| shift_date          | 営業日                                            |
+| shift_type          | `time` / `early` / `help` / `off` / `absence`     |
+| start_time nullable | `time`だけ必須                                    |
+| timestamps          | 作成・更新日時                                    |
 
 制約:
 
@@ -235,11 +254,12 @@ stores 1 ── * store_holidays
 - INDEX(`store_id`, `shift_date`)
 - `time`: `store_id`と`start_time`必須、時刻は00:00〜23:00の正時
 - `early`: `store_id`必須、`start_time = NULL`
+- `help`: 表示中店舗以外の`store_id`必須、`start_time = NULL`
 - `off`: `store_id = NULL`かつ`start_time = NULL`
 - `absence`: `store_id = NULL`かつ`start_time = NULL`
 - 対象日にスタッフが在籍していること
 - 新規登録するスタッフには対象日にいずれかの有効店舗所属があること
-- `time`/`early`では対象店舗が店休日でないこと
+- `time`/`early`/`help`では対象店舗が店休日でないこと
 
 `store_id`は画面を表示している店舗ではなく実際の勤務予定店舗を保存する。ヘルプ勤務も同じレコード構造を使用し、候補は有効な`stores`から動的に生成する。ヘルプ先・表示中店舗への`staff_store_assignments`は必須とせず、対象日にいずれかの有効店舗へ所属していれば、交代・応援要員として追加できる。
 
@@ -267,8 +287,9 @@ UNIQUE制約により、複数店舗勤務、勤務と休の重複、休の複�
 - INDEX(`store_id`, `work_date`)
 - INDEX(`staff_id`, `work_date`)
 - 出退勤は15分境界
+- `work_date 12:00 <= clock_in_at < work_date + 1日 12:00`
 - `clock_out_at > clock_in_at`
-- `clock_out_at <= work_date + 1日 10:00`
+- `clock_out_at < clock_in_at + 24時間`
 - MySQLのCHECK制約でも15分境界、日時範囲、実働分数の整合性を拒否する
 - `working_minutes`と`late_night_minutes`はServiceで再計算し、クライアント値を信用しない
 

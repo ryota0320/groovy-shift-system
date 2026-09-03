@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
-    attendanceTimeOptions,
     calculateAttendancePreview,
     changedAttendanceRecords,
+    clockInOffsetFromTimeInput,
+    clockOutOffsetFromTimeInput,
     hasUnsavedAttendanceChanges,
     offsetLabel,
 } from '@/lib/attendance-form';
@@ -13,13 +14,32 @@ describe('Phase 3 attendance form', () => {
         expect(offsetLabel(29 * 60)).toBe('5:00');
     });
 
-    it('ATT-023: shows one unambiguous sequence from 17:00 through 10:00', () => {
-        const labels = attendanceTimeOptions.map(offsetLabel);
+    it('ATT-023: maps manually entered times using the noon business-day cutoff', () => {
+        expect(clockInOffsetFromTimeInput('12:00')).toBe(12 * 60);
+        expect(clockInOffsetFromTimeInput('01:00')).toBe(25 * 60);
+        expect(clockInOffsetFromTimeInput('11:45')).toBe(35 * 60 + 45);
+        expect(clockOutOffsetFromTimeInput('13:00', 15 * 60)).toBe(37 * 60);
+    });
 
-        expect(labels[0]).toBe('17:00');
-        expect(labels.at(-1)).toBe('10:00');
-        expect(labels).toHaveLength(new Set(labels).size);
-        expect(labels.indexOf('0:00')).toBe(labels.indexOf('23:45') + 1);
+    it('ATT-033/034/035: accepts preparation and late finish but rejects a 24-hour shift', () => {
+        expect(
+            calculateAttendancePreview(
+                {
+                    clock_in_offset_minutes: 15 * 60,
+                    clock_out_offset_minutes: 37 * 60,
+                },
+                null,
+            ),
+        ).toMatchObject({ valid: true, workingMinutes: 22 * 60 });
+        expect(
+            calculateAttendancePreview(
+                {
+                    clock_in_offset_minutes: 15 * 60,
+                    clock_out_offset_minutes: 39 * 60,
+                },
+                null,
+            ).valid,
+        ).toBe(false);
     });
 
     it('LNT-008: calculates late-night overlap from the business date interval', () => {

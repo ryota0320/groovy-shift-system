@@ -37,7 +37,7 @@ class ShiftSaveService
             }
 
             $this->validateContextStore($contextStore, $staff, $shiftDate, null, 'shift_type');
-            $this->validateWorkShift($workStore, $staff, $shiftDate, $shiftType, $startTime, 'shift_type');
+            $this->validateWorkShift($contextStore, $workStore, $staff, $shiftDate, $shiftType, $startTime, 'shift_type');
 
             return Shift::query()->create($this->attributes(
                 $workStore,
@@ -162,7 +162,12 @@ class ShiftSaveService
             return null;
         }
 
-        $this->validateWorkShift($workStore, $staff, $shiftDate, $shiftType, $startTime, $field);
+        $this->validateWorkShift($contextStore, $workStore, $staff, $shiftDate, $shiftType, $startTime, $field);
+
+        if ($this->keepsDetailedHelpShift($contextStore, $workStore, $existing, $shiftType)) {
+            return $existing;
+        }
+
         $attributes = $this->attributes($workStore, $staff, $shiftDate, $shiftType, $startTime);
 
         if ($existing === null) {
@@ -174,7 +179,22 @@ class ShiftSaveService
         return $existing->fresh();
     }
 
+    private function keepsDetailedHelpShift(
+        Store $contextStore,
+        ?Store $workStore,
+        ?Shift $existing,
+        ShiftType $shiftType,
+    ): bool {
+        return $shiftType === ShiftType::Help
+            && $workStore !== null
+            && $workStore->id !== $contextStore->id
+            && $existing !== null
+            && $existing->store_id === $workStore->id
+            && in_array($existing->shift_type, [ShiftType::Time, ShiftType::Early], true);
+    }
+
     private function validateWorkShift(
+        Store $contextStore,
         ?Store $store,
         Staff $staff,
         string $shiftDate,
@@ -203,6 +223,12 @@ class ShiftSaveService
         if ($store === null) {
             throw ValidationException::withMessages([
                 $field => '勤務店舗を選択してください。',
+            ]);
+        }
+
+        if ($shiftType === ShiftType::Help && $store->id === $contextStore->id) {
+            throw ValidationException::withMessages([
+                $field => '他店ヘルプは自店以外の勤務店舗を選択してください。',
             ]);
         }
 

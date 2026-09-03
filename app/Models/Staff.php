@@ -46,6 +46,12 @@ class Staff extends Model
         return $this->hasMany(StaffStoreDisplayOrder::class);
     }
 
+    /** @return HasMany<MonthlyShiftStaffAddition, $this> */
+    public function monthlyShiftAdditions(): HasMany
+    {
+        return $this->hasMany(MonthlyShiftStaffAddition::class);
+    }
+
     /** @return HasMany<StaffWageRate, $this> */
     public function wageRates(): HasMany
     {

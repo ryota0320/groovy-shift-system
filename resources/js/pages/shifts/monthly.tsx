@@ -1,5 +1,12 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { CalendarDays, Download, GripVertical, Rows3 } from 'lucide-react';
+import {
+    CalendarDays,
+    Download,
+    GripVertical,
+    Plus,
+    Rows3,
+    Trash2,
+} from 'lucide-react';
 import { type DragEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import MasterPageHeader from '@/components/master-page-header';
@@ -7,11 +14,19 @@ import ShiftSelect, {
     decodeShiftValue,
     encodeShiftValue,
 } from '@/components/shift-select';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type {
+    AddableMonthlyShiftStaff,
     MonthlyShiftDay,
     MonthlyShiftStaff,
     ShiftValue,
@@ -26,6 +41,7 @@ type Props = {
     month: string;
     days: MonthlyShiftDay[];
     staffs: MonthlyShiftStaff[];
+    addable_staffs: AddableMonthlyShiftStaff[];
 };
 
 export default function MonthlyShift({
@@ -34,6 +50,7 @@ export default function MonthlyShift({
     month,
     days,
     staffs,
+    addable_staffs: addableStaffs,
 }: Props) {
     const [overrides, setOverrides] = useState<Record<string, string>>({});
     const [savingCell, setSavingCell] = useState<string | null>(null);
@@ -41,12 +58,17 @@ export default function MonthlyShift({
     const [draggedStaffId, setDraggedStaffId] = useState<number | null>(null);
     const [dragOverStaffId, setDragOverStaffId] = useState<number | null>(null);
     const [savingOrder, setSavingOrder] = useState(false);
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [staffToAdd, setStaffToAdd] = useState('');
+    const [addingStaff, setAddingStaff] = useState(false);
+    const [removingStaffId, setRemovingStaffId] = useState<number | null>(null);
     const storePlaceholder = storeSelectionPlaceholder(stores, selectedStore);
 
     useEffect(() => {
         setOrderedStaffs(staffs);
         setDraggedStaffId(null);
         setDragOverStaffId(null);
+        setStaffToAdd('');
     }, [staffs, selectedStore?.id, month]);
 
     const move = (storeId: string, targetMonth: string) => {
@@ -147,6 +169,7 @@ export default function MonthlyShift({
             '/shifts/monthly/order',
             {
                 store_id: selectedStore.id,
+                month,
                 staff_ids: next.map((staff) => staff.id),
             },
             {
@@ -168,6 +191,65 @@ export default function MonthlyShift({
         );
     };
 
+    const addStaff = () => {
+        if (!selectedStore || !staffToAdd) return;
+        setAddingStaff(true);
+        router.post(
+            '/shifts/monthly/staffs',
+            {
+                store_id: selectedStore.id,
+                staff_id: Number(staffToAdd),
+                month,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setAddDialogOpen(false);
+                    setStaffToAdd('');
+                },
+                onError: (errors) =>
+                    toast.error(
+                        String(
+                            Object.values(errors)[0] ??
+                                'スタッフの追加に失敗しました。',
+                        ),
+                    ),
+                onFinish: () => setAddingStaff(false),
+            },
+        );
+    };
+
+    const removeStaff = (staff: MonthlyShiftStaff) => {
+        if (
+            !selectedStore ||
+            !staff.can_remove ||
+            removingStaffId !== null ||
+            !window.confirm(
+                `${staff.name}さんをこの月の一覧から削除しますか？\n対象月の登録済みシフトもすべて削除されます。スタッフ情報、所属情報、勤怠実績は削除されません。`,
+            )
+        ) {
+            return;
+        }
+
+        setRemovingStaffId(staff.id);
+        router.delete('/shifts/monthly/staffs', {
+            data: {
+                store_id: selectedStore.id,
+                staff_id: staff.id,
+                month,
+            },
+            preserveScroll: true,
+            onError: (errors) =>
+                toast.error(
+                    String(
+                        Object.values(errors)[0] ??
+                            'スタッフの削除に失敗しました。',
+                    ),
+                ),
+            onFinish: () => setRemovingStaffId(null),
+        });
+    };
+
     return (
         <>
             <Head title="月間シフト" />
@@ -177,14 +259,16 @@ export default function MonthlyShift({
                     description="スタッフごとに、勤務開始時刻・早番・休み・急な休みと勤務店舗を登録します。"
                     actions={
                         <div className="flex flex-wrap gap-2">
-                            <Button
-                                variant="outline"
-                                disabled
-                                title="PNG出力はフェーズ5で実装します"
-                            >
-                                <Download />
-                                PNG出力（準備中）
-                            </Button>
+                            {selectedStore && (
+                                <Button variant="outline" asChild>
+                                    <a
+                                        href={`/shifts/monthly.png?store_id=${selectedStore.id}&month=${month}`}
+                                    >
+                                        <Download />
+                                        PNG出力
+                                    </a>
+                                </Button>
+                            )}
                             {selectedStore && (
                                 <Button asChild>
                                     <Link
@@ -235,17 +319,30 @@ export default function MonthlyShift({
                             }
                         />
                     </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={
+                            !selectedStore?.is_active ||
+                            addableStaffs.length === 0
+                        }
+                        onClick={() => setAddDialogOpen(true)}
+                    >
+                        <Plus />
+                        スタッフ追加
+                    </Button>
                     <div className="text-muted-foreground flex flex-wrap gap-3 text-xs sm:ml-auto sm:pb-2">
                         <span>
                             {savingOrder
                                 ? '並び順を保存中…'
                                 : 'スタッフ名をドラッグして並び替え'}
                         </span>
-                        <span>00〜23：勤務開始時刻</span>
+                        <span>勤務店舗と開始時刻を1つの選択肢で指定</span>
                         <span>早：早番</span>
                         <span>休：休み</span>
-                        <span>勤務時は自店・ヘルプ先を選択</span>
-                        <span>店休日も営業中の他店ヘルプは入力可</span>
+                        <span>
+                            店休日は入力不可（他店勤務は勤務先店舗へスタッフ追加）
+                        </span>
                     </div>
                 </section>
 
@@ -278,7 +375,7 @@ export default function MonthlyShift({
                                                     day.is_sunday &&
                                                         'bg-rose-50 text-rose-700 dark:bg-rose-950/40',
                                                     day.is_holiday &&
-                                                        'bg-orange-400 text-orange-950 dark:bg-orange-700 dark:text-white',
+                                                        'bg-amber-50 dark:bg-amber-950/40',
                                                 )}
                                             >
                                                 <span className="block tabular-nums">
@@ -287,19 +384,19 @@ export default function MonthlyShift({
                                                 <span className="block text-xs">
                                                     （{day.weekday}）
                                                 </span>
-                                                {day.is_holiday && (
-                                                    <span className="mt-1 inline-flex rounded bg-orange-950/15 px-1 py-0.5 text-[10px] leading-none font-bold dark:bg-white/20">
-                                                        店休
-                                                    </span>
-                                                )}
                                             </th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {orderedStaffs.map((staff) => (
+                                    {orderedStaffs.map((staff, staffIndex) => (
                                         <tr
                                             key={staff.id}
+                                            className={
+                                                staffIndex % 2 === 1
+                                                    ? 'bg-muted/45 dark:bg-muted/60'
+                                                    : 'bg-card'
+                                            }
                                             onDragOver={(event) => {
                                                 if (
                                                     draggedStaffId !== null &&
@@ -322,7 +419,9 @@ export default function MonthlyShift({
                                                     'sticky left-0 z-10 border-r border-b px-2 py-2 text-left font-medium',
                                                     dragOverStaffId === staff.id
                                                         ? 'bg-primary/10'
-                                                        : 'bg-card',
+                                                        : staffIndex % 2 === 1
+                                                          ? 'bg-muted/45 dark:bg-muted/60'
+                                                          : 'bg-card',
                                                 )}
                                             >
                                                 <div className="flex items-center gap-1.5">
@@ -350,7 +449,7 @@ export default function MonthlyShift({
                                                     >
                                                         <GripVertical className="size-4" />
                                                     </button>
-                                                    <span>
+                                                    <span className="min-w-0 flex-1">
                                                         <span className="block whitespace-nowrap">
                                                             {staff.name}
                                                         </span>
@@ -359,8 +458,33 @@ export default function MonthlyShift({
                                                             'employee'
                                                                 ? '社員'
                                                                 : 'アルバイト'}
+                                                            {staff.is_added &&
+                                                                '・追加'}
+                                                            {!staff.is_added &&
+                                                                staff.can_remove &&
+                                                                '・所属外'}
                                                         </span>
                                                     </span>
+                                                    {staff.can_remove && (
+                                                        <button
+                                                            type="button"
+                                                            aria-label={`${staff.name}をこの月の一覧から削除`}
+                                                            title="この月の一覧から削除"
+                                                            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive ml-auto rounded p-1 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            disabled={
+                                                                savingOrder ||
+                                                                removingStaffId !==
+                                                                    null
+                                                            }
+                                                            onClick={() =>
+                                                                removeStaff(
+                                                                    staff,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Trash2 className="size-4" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </th>
                                             {staff.cells.map((cell, index) => {
@@ -383,11 +507,11 @@ export default function MonthlyShift({
                                                         className={cn(
                                                             'h-12 border-r border-b p-1 text-center',
                                                             day?.is_saturday &&
-                                                                'bg-sky-50/50 dark:bg-sky-950/20',
+                                                                'bg-sky-50/50 dark:bg-sky-950/55',
                                                             day?.is_sunday &&
-                                                                'bg-rose-50/50 dark:bg-rose-950/20',
+                                                                'bg-rose-50/50 dark:bg-rose-950/55',
                                                             day?.is_holiday &&
-                                                                'bg-orange-200/90 ring-1 ring-orange-400 ring-inset dark:bg-orange-800/50 dark:ring-orange-500/70',
+                                                                'bg-amber-50/70 dark:bg-amber-950/50',
                                                         )}
                                                     >
                                                         {cell.inconsistency ? (
@@ -406,9 +530,8 @@ export default function MonthlyShift({
                                                                     要確認
                                                                 </span>
                                                             </span>
-                                                        ) : day?.is_holiday &&
-                                                          !cell.editable ? (
-                                                            <span className="text-xs font-bold text-orange-950 dark:text-orange-100">
+                                                        ) : day?.is_holiday ? (
+                                                            <span className="text-muted-foreground text-xs">
                                                                 {cell.shift_type ===
                                                                     'off' ||
                                                                 cell.shift_type ===
@@ -417,19 +540,44 @@ export default function MonthlyShift({
                                                                     : '店休'}
                                                             </span>
                                                         ) : cell.conflict_store ? (
-                                                            <Badge
-                                                                variant="secondary"
+                                                            <div
                                                                 title={`${cell.conflict_store}に登録済み`}
-                                                                className="px-1.5"
+                                                                className="flex justify-center"
                                                             >
-                                                                他店
-                                                            </Badge>
+                                                                <ShiftSelect
+                                                                    combined
+                                                                    compact
+                                                                    value={{
+                                                                        shift_type:
+                                                                            null,
+                                                                        start_time:
+                                                                            null,
+                                                                        store_id:
+                                                                            null,
+                                                                    }}
+                                                                    stores={
+                                                                        stores
+                                                                    }
+                                                                    selectedStoreId={
+                                                                        selectedStore.id
+                                                                    }
+                                                                    availableStoreIds={
+                                                                        cell.available_store_ids
+                                                                    }
+                                                                    disabled
+                                                                    ariaLabel={`${staff.name} ${cell.date}のシフト（他店勤務のため入力不可）`}
+                                                                    onChange={() =>
+                                                                        undefined
+                                                                    }
+                                                                />
+                                                            </div>
                                                         ) : !cell.eligible ? (
                                                             <span className="text-muted-foreground">
                                                                 —
                                                             </span>
                                                         ) : (
                                                             <ShiftSelect
+                                                                combined
                                                                 compact
                                                                 value={value}
                                                                 stores={stores}
@@ -443,10 +591,6 @@ export default function MonthlyShift({
                                                                     !cell.editable ||
                                                                     savingCell !==
                                                                         null
-                                                                }
-                                                                holidayHelpOnly={
-                                                                    day?.is_holiday ??
-                                                                    false
                                                                 }
                                                                 ariaLabel={`${staff.name} ${cell.date}のシフト`}
                                                                 onChange={(
@@ -471,6 +615,62 @@ export default function MonthlyShift({
                         </div>
                     </div>
                 )}
+
+                <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>
+                                月間シフトへスタッフを追加
+                            </DialogTitle>
+                            <DialogDescription>
+                                他店所属のスタッフを{month.replace('-', '年')}
+                                月の最下部へ追加します。
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-2">
+                            <Label htmlFor="monthly-shift-staff">
+                                スタッフ
+                            </Label>
+                            <select
+                                id="monthly-shift-staff"
+                                value={staffToAdd}
+                                onChange={(event) =>
+                                    setStaffToAdd(event.target.value)
+                                }
+                                className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+                            >
+                                <option value="">スタッフを選択</option>
+                                {addableStaffs.map((staff) => (
+                                    <option key={staff.id} value={staff.id}>
+                                        {staff.name}（
+                                        {staff.employment_type_label}・所属：
+                                        {staff.assignment_store_names.join(
+                                            '、',
+                                        )}
+                                        ）
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setAddDialogOpen(false)}
+                            >
+                                キャンセル
+                            </Button>
+                            <Button
+                                type="button"
+                                disabled={!staffToAdd || addingStaff}
+                                onClick={addStaff}
+                            >
+                                <Plus />
+                                {addingStaff ? '追加中…' : '最下部へ追加'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </>
     );

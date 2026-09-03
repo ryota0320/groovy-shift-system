@@ -73,7 +73,7 @@ class AttendanceCalendarService
             $otherAttendance = $staff->attendanceRecords
                 ->first(fn (AttendanceRecord $record): bool => $record->store_id !== $store->id);
             $otherWorkShift = $shift !== null
-                && in_array($shift->shift_type, [ShiftType::Time, ShiftType::Early], true)
+                && in_array($shift->shift_type, [ShiftType::Time, ShiftType::Early, ShiftType::Help], true)
                 && $shift->store_id !== $store->id
                 ? $shift
                 : null;
@@ -181,6 +181,14 @@ class AttendanceCalendarService
             return ['type' => 'early', 'display' => $prefix.'早番', 'start_offset_minutes' => null];
         }
 
+        if ($shift->shift_type === ShiftType::Help) {
+            return [
+                'type' => 'help',
+                'display' => $shift->store->name,
+                'start_offset_minutes' => null,
+            ];
+        }
+
         if ($shift->shift_type === ShiftType::Absence) {
             return ['type' => 'absence', 'display' => '急な休み', 'start_offset_minutes' => null];
         }
@@ -193,7 +201,7 @@ class AttendanceCalendarService
         [$hour, $minute] = array_map('intval', explode(':', $start));
         $offset = ($hour * 60) + $minute;
 
-        if ($hour <= 10) {
+        if ($offset < AttendanceTimeService::BUSINESS_DAY_CUTOFF_MINUTES) {
             $offset += 24 * 60;
         }
         $prefix = $contextStore !== null && $shift->store_id !== $contextStore->id
@@ -202,7 +210,7 @@ class AttendanceCalendarService
 
         return [
             'type' => 'time',
-            'display' => $prefix.$hour.':'.sprintf('%02d', $minute),
+            'display' => $prefix.($hour === 0 ? 24 : $hour).':'.sprintf('%02d', $minute),
             'start_offset_minutes' => $offset,
         ];
     }

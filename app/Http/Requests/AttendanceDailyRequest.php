@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\AttendanceTimeService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AttendanceDailyRequest extends FormRequest
@@ -16,10 +17,18 @@ class AttendanceDailyRequest extends FormRequest
             'records' => ['required', 'array', 'min:1', 'max:500'],
             'records.*.staff_id' => ['required', 'integer', 'distinct', 'exists:staffs,id'],
             'records.*.clock_in_offset_minutes' => [
-                'required', 'integer', 'min:0', 'max:2025', 'multiple_of:15',
+                'required',
+                'integer',
+                'min:'.AttendanceTimeService::BUSINESS_DAY_CUTOFF_MINUTES,
+                'max:'.AttendanceTimeService::MAX_CLOCK_IN_OFFSET_MINUTES,
+                'multiple_of:15',
             ],
             'records.*.clock_out_offset_minutes' => [
-                'required', 'integer', 'min:15', 'max:2040', 'multiple_of:15',
+                'required',
+                'integer',
+                'min:'.(AttendanceTimeService::BUSINESS_DAY_CUTOFF_MINUTES + 15),
+                'max:'.AttendanceTimeService::MAX_CLOCK_OUT_OFFSET_MINUTES,
+                'multiple_of:15',
             ],
         ];
     }
@@ -35,7 +44,10 @@ class AttendanceDailyRequest extends FormRequest
             'records.*.clock_out_offset_minutes.required' => '実退勤を選択してください。',
             'records.*.clock_in_offset_minutes.multiple_of' => '実出勤は15分単位で指定してください。',
             'records.*.clock_out_offset_minutes.multiple_of' => '実退勤は15分単位で指定してください。',
-            'records.*.clock_out_offset_minutes.max' => '実退勤は翌10:00までにしてください。',
+            'records.*.clock_in_offset_minutes.min' => '実出勤は営業日当日12:00以降にしてください。',
+            'records.*.clock_in_offset_minutes.max' => '実出勤は営業日翌日11:45までにしてください。',
+            'records.*.clock_out_offset_minutes.min' => '実退勤は実出勤より後にしてください。',
+            'records.*.clock_out_offset_minutes.max' => '1回の勤務時間は24時間未満にしてください。',
         ];
     }
 }

@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
+    BarChart3,
     Building2,
     CalendarDays,
     Clock3,
@@ -54,6 +55,11 @@ const mainNavItems: NavItem[] = [
         title: '給与',
         href: '/payrolls',
         icon: WalletCards,
+    },
+    {
+        title: '月次集計',
+        href: '/aggregations',
+        icon: BarChart3,
     },
     {
         title: '深夜加算設定',

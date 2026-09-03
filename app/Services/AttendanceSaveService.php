@@ -146,7 +146,7 @@ class AttendanceSaveService
         }
 
         if ($scheduledShift !== null
-            && in_array($scheduledShift->shift_type, [ShiftType::Time, ShiftType::Early], true)
+            && in_array($scheduledShift->shift_type, [ShiftType::Time, ShiftType::Early, ShiftType::Help], true)
             && $scheduledShift->store_id !== $store->id) {
             throw ValidationException::withMessages([
                 "records.{$index}.staff_id" => '同じ営業日に別店舗の勤務予定があります。',
