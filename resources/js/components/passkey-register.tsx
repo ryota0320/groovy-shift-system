@@ -29,7 +29,7 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
             { pattern: /Windows/, name: 'Windows' },
         ].find(({ pattern }) => pattern.test(ua))?.name;
 
-        return [browser, os].filter(Boolean).join(' on ') || '';
+        return [browser, os].filter(Boolean).join(' / ') || '';
     });
 
     const [showForm, setShowForm] = useState(false);
@@ -59,7 +59,7 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
     if (!isSupported) {
         return (
             <div className="text-muted-foreground text-sm">
-                Passkeys are not supported in this browser.
+                このブラウザはパスキーに対応していません。
             </div>
         );
     }
@@ -67,7 +67,7 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
     if (!showForm) {
         return (
             <Button variant="outline" onClick={() => setShowForm(true)}>
-                Add passkey
+                パスキーを追加
             </Button>
         );
     }
@@ -78,18 +78,18 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
             className="border-border bg-muted/50 space-y-4 rounded-lg border p-4"
         >
             <div className="grid gap-2">
-                <Label htmlFor="passkey-name">Passkey name</Label>
+                <Label htmlFor="passkey-name">パスキー名</Label>
                 <Input
                     id="passkey-name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g., MacBook Pro, iPhone"
+                    placeholder="例: MacBook Pro、iPhone"
                     className="border-foreground/20 mt-1 block w-full"
                     autoFocus
                 />
                 <p className="text-muted-foreground text-xs">
-                    A name helps you identify this passkey later.
+                    後から識別できる名前を入力してください。
                 </p>
             </div>
 
@@ -97,10 +97,10 @@ export default function PasskeyRegistration({ onSuccess }: Props) {
 
             <div className="flex gap-2">
                 <Button type="submit" disabled={isLoading || !name.trim()}>
-                    {isLoading ? 'Registering...' : 'Register passkey'}
+                    {isLoading ? '登録中...' : 'パスキーを登録'}
                 </Button>
                 <Button type="button" variant="ghost" onClick={handleCancel}>
-                    Cancel
+                    キャンセル
                 </Button>
             </div>
         </form>

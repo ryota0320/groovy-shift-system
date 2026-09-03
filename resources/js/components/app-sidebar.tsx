@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { LayoutGrid } from 'lucide-react';
+import { Building2, LayoutGrid, MoonStar, UsersRound } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -20,6 +20,21 @@ const mainNavItems: NavItem[] = [
         title: 'ダッシュボード',
         href: dashboard(),
         icon: LayoutGrid,
+    },
+    {
+        title: '店舗',
+        href: '/stores',
+        icon: Building2,
+    },
+    {
+        title: 'スタッフ',
+        href: '/staffs',
+        icon: UsersRound,
+    },
+    {
+        title: '深夜加算設定',
+        href: '/settings/late-night-rates',
+        icon: MoonStar,
     },
 ];
 

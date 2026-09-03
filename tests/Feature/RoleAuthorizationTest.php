@@ -27,7 +27,7 @@ class RoleAuthorizationTest extends TestCase
 
     public function test_employee_cannot_access_admin_route(): void
     {
-        $employee = User::factory()->create(['role' => UserRole::Employee]);
+        $employee = User::factory()->employee()->create();
 
         $this->actingAs($employee)->get('/_test/admin-only')->assertForbidden();
     }

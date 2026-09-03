@@ -43,13 +43,13 @@ export default function PasskeyItem({ passkey, onDelete }: Props) {
                         )}
                     </div>
                     <p className="text-muted-foreground text-sm">
-                        Added {passkey.created_at_diff}
+                        登録: {passkey.created_at_diff}
                         {passkey.last_used_at_diff && (
                             <>
                                 <span className="text-muted-foreground/50 mx-1">
                                     /
                                 </span>
-                                Last used {passkey.last_used_at_diff}
+                                最終使用: {passkey.last_used_at_diff}
                             </>
                         )}
                     </p>
@@ -64,26 +64,25 @@ export default function PasskeyItem({ passkey, onDelete }: Props) {
                         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
                         <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Remove</span>
+                        <span className="sr-only">削除</span>
                     </Button>
                 </DialogTrigger>
                 <DialogContent>
-                    <DialogTitle>Remove passkey</DialogTitle>
+                    <DialogTitle>パスキーを削除</DialogTitle>
                     <DialogDescription>
-                        Are you sure you want to remove the "{passkey.name}"
-                        passkey? You will no longer be able to use it to sign
-                        in.
+                        「{passkey.name}」を削除しますか？削除後はこのパスキー
+                        でログインできなくなります。
                     </DialogDescription>
                     <DialogFooter className="gap-2">
                         <DialogClose asChild>
-                            <Button variant="secondary">Cancel</Button>
+                            <Button variant="secondary">キャンセル</Button>
                         </DialogClose>
                         <Button
                             variant="destructive"
                             onClick={handleDelete}
                             disabled={isDeleting}
                         >
-                            {isDeleting ? 'Removing...' : 'Remove passkey'}
+                            {isDeleting ? '削除中...' : 'パスキーを削除'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

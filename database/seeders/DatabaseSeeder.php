@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\UserRole;
+use App\Models\Store;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -18,6 +19,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        foreach (['46', 'オニカイ', '蛸福'] as $storeName) {
+            Store::query()->updateOrCreate(
+                ['name' => $storeName],
+                ['is_active' => true],
+            );
+        }
+
         $email = config('initial-admin.email');
         $password = config('initial-admin.password');
 

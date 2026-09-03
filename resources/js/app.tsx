@@ -7,6 +7,11 @@ import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const accountSettingsPages = new Set([
+    'settings/profile',
+    'settings/security',
+    'settings/appearance',
+]);
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
@@ -16,7 +21,7 @@ void createInertiaApp({
                 return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
-            case name.startsWith('settings/'):
+            case accountSettingsPages.has(name):
                 return [AppLayout, SettingsLayout];
             default:
                 return AppLayout;

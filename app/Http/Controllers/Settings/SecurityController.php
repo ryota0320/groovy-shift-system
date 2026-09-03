@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\PasswordUpdateRequest;
 use App\Http\Requests\Settings\TwoFactorAuthenticationRequest;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -31,8 +32,10 @@ class SecurityController extends Controller
                         'id' => $passkey->id,
                         'name' => $passkey->name,
                         'authenticator' => $passkey->authenticator,
-                        'created_at_diff' => $passkey->created_at->diffForHumans(),
-                        'last_used_at_diff' => $passkey->last_used_at?->diffForHumans(),
+                        'created_at_diff' => $this->formatRelativeTime($passkey->created_at),
+                        'last_used_at_diff' => $passkey->last_used_at === null
+                            ? null
+                            : $this->formatRelativeTime($passkey->last_used_at),
                     ])
                     ->values()
                     ->all()
@@ -59,8 +62,16 @@ class SecurityController extends Controller
             'password' => $request->password,
         ]);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Password updated.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'パスワードを更新しました。']);
 
         return back();
+    }
+
+    private function formatRelativeTime(Carbon|string $value): string
+    {
+        $date = Carbon::parse($value);
+        $date->locale('ja');
+
+        return $date->diffForHumans();
     }
 }
