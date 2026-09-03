@@ -39,15 +39,15 @@ stores 1 ── * store_holidays
 
 ### 3.1 users
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
+| カラム            | 概要                                       |
+| ----------------- | ------------------------------------------ |
+| id                | 主キー                                     |
 | staff_id nullable | 社員スタッフとの関連。開発管理者だけNULL可 |
-| name | ログイン利用者名 |
-| email | ログインメールアドレス |
-| password | ハッシュ済みパスワード |
-| role | `admin` / `employee` |
-| timestamps | 作成・更新日時 |
+| name              | ログイン利用者名                           |
+| email             | ログインメールアドレス                     |
+| password          | ハッシュ済みパスワード                     |
+| role              | `admin` / `employee`                       |
+| timestamps        | 作成・更新日時                             |
 
 制約:
 
@@ -63,23 +63,23 @@ stores 1 ── * store_holidays
 
 ### 4.1 stores
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| name | 店舗名 |
-| is_active | 現在利用可能か |
+| カラム     | 概要           |
+| ---------- | -------------- |
+| id         | 主キー         |
+| name       | 店舗名         |
+| is_active  | 現在利用可能か |
 | timestamps | 作成・更新日時 |
 
 店舗名の重複可否は実装前に既存運用を確認し、原則として有効店舗間の同名を避ける。
 
 ### 4.2 store_holidays
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| store_id | 店舗 |
-| holiday_date | 店休日 |
-| timestamps | 作成・更新日時 |
+| カラム       | 概要           |
+| ------------ | -------------- |
+| id           | 主キー         |
+| store_id     | 店舗           |
+| holiday_date | 店休日         |
+| timestamps   | 作成・更新日時 |
 
 制約:
 
@@ -90,14 +90,14 @@ stores 1 ── * store_holidays
 
 ### 5.1 staffs
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| name | 氏名 |
-| employment_type | `employee` / `part_time` |
-| hired_at nullable | 入社日 |
-| retired_at nullable | 退職日。当日まで在籍 |
-| timestamps | 作成・更新日時 |
+| カラム              | 概要                     |
+| ------------------- | ------------------------ |
+| id                  | 主キー                   |
+| name                | 氏名                     |
+| employment_type     | `employee` / `part_time` |
+| hired_at nullable   | 入社日                   |
+| retired_at nullable | 退職日。当日まで在籍     |
+| timestamps          | 作成・更新日時           |
 
 `employment_status`、現在時給、現在税区分、現在扶養人数は保持しない。在籍状態と現在設定は日付・履歴テーブルから導出する。
 
@@ -107,14 +107,14 @@ stores 1 ── * store_holidays
 
 ### 5.2 staff_store_assignments
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| staff_id | スタッフ |
-| store_id | 店舗 |
-| effective_from | 所属開始日 |
+| カラム                | 概要                   |
+| --------------------- | ---------------------- |
+| id                    | 主キー                 |
+| staff_id              | スタッフ               |
+| store_id              | 店舗                   |
+| effective_from        | 所属開始日             |
 | effective_to nullable | 所属終了日。当日を含む |
-| timestamps | 作成・更新日時 |
+| timestamps            | 作成・更新日時         |
 
 制約:
 
@@ -124,14 +124,14 @@ stores 1 ── * store_holidays
 
 ### 5.3 staff_wage_rates
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| staff_id | アルバイトスタッフ |
-| hourly_wage | 1時間当たり時給、整数円 |
-| effective_from | 適用開始日 |
-| effective_to nullable | 適用終了日。当日を含む |
-| timestamps | 作成・更新日時 |
+| カラム                | 概要                    |
+| --------------------- | ----------------------- |
+| id                    | 主キー                  |
+| staff_id              | アルバイトスタッフ      |
+| hourly_wage           | 1時間当たり時給、整数円 |
+| effective_from        | 適用開始日              |
+| effective_to nullable | 適用終了日。当日を含む  |
+| timestamps            | 作成・更新日時          |
 
 制約:
 
@@ -142,16 +142,16 @@ stores 1 ── * store_holidays
 
 ### 5.4 staff_store_transportation_fees
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| staff_id | スタッフ |
-| store_id | 店舗 |
-| amount_per_day | 実勤務1日当たり交通費、整数円 |
-| tax_type | `taxable` / `non_taxable` |
-| effective_from | 適用開始日 |
-| effective_to nullable | 適用終了日。当日を含む |
-| timestamps | 作成・更新日時 |
+| カラム                | 概要                          |
+| --------------------- | ----------------------------- |
+| id                    | 主キー                        |
+| staff_id              | スタッフ                      |
+| store_id              | 店舗                          |
+| amount_per_day        | 実勤務1日当たり交通費、整数円 |
+| tax_type              | `taxable` / `non_taxable`     |
+| effective_from        | 適用開始日                    |
+| effective_to nullable | 適用終了日。当日を含む        |
+| timestamps            | 作成・更新日時                |
 
 制約:
 
@@ -161,15 +161,15 @@ stores 1 ── * store_holidays
 
 ### 5.5 staff_income_tax_settings
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| staff_id | アルバイトスタッフ |
-| tax_category | `ko` / `otsu` |
-| dependent_count | 扶養親族等の人数 |
-| effective_from | 適用開始日 |
+| カラム                | 概要                   |
+| --------------------- | ---------------------- |
+| id                    | 主キー                 |
+| staff_id              | アルバイトスタッフ     |
+| tax_category          | `ko` / `otsu`          |
+| dependent_count       | 扶養親族等の人数       |
+| effective_from        | 適用開始日             |
 | effective_to nullable | 適用終了日。当日を含む |
-| timestamps | 作成・更新日時 |
+| timestamps            | 作成・更新日時         |
 
 制約:
 
@@ -180,13 +180,13 @@ stores 1 ── * store_holidays
 
 ### 5.6 late_night_rate_settings
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| amount_per_hour | 1時間当たり加算額、整数円 |
-| effective_from | 適用開始日 |
-| effective_to nullable | 適用終了日。当日を含む |
-| timestamps | 作成・更新日時 |
+| カラム                | 概要                      |
+| --------------------- | ------------------------- |
+| id                    | 主キー                    |
+| amount_per_hour       | 1時間当たり加算額、整数円 |
+| effective_from        | 適用開始日                |
+| effective_to nullable | 適用終了日。当日を含む    |
+| timestamps            | 作成・更新日時            |
 
 制約:
 
@@ -200,15 +200,15 @@ stores 1 ── * store_holidays
 
 「休」を全店舗共通状態として一意に表現するため、`off`では`store_id = NULL`とする。詳細は[ADR-0002](adr/0002-global-day-off.md)を参照する。
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| staff_id | スタッフ |
-| store_id nullable | `time`/`early`の勤務店舗。`off`ではNULL |
-| shift_date | 営業日 |
-| shift_type | `time` / `early` / `off` |
-| start_time nullable | `time`だけ必須 |
-| timestamps | 作成・更新日時 |
+| カラム              | 概要                                    |
+| ------------------- | --------------------------------------- |
+| id                  | 主キー                                  |
+| staff_id            | スタッフ                                |
+| store_id nullable   | `time`/`early`の勤務店舗。`off`ではNULL |
+| shift_date          | 営業日                                  |
+| shift_type          | `time` / `early` / `off`                |
+| start_time nullable | `time`だけ必須                          |
+| timestamps          | 作成・更新日時                          |
 
 制約:
 
@@ -227,17 +227,17 @@ UNIQUE制約により、複数店舗勤務、勤務と休の重複、休の複�
 
 ### 7.1 attendance_records
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| staff_id | スタッフ |
-| store_id | 勤務店舗 |
-| work_date | 帰属営業日 |
-| clock_in_at | 実出勤日時 |
-| clock_out_at | 実退勤日時 |
-| working_minutes | 実働分数 |
+| カラム             | 概要             |
+| ------------------ | ---------------- |
+| id                 | 主キー           |
+| staff_id           | スタッフ         |
+| store_id           | 勤務店舗         |
+| work_date          | 帰属営業日       |
+| clock_in_at        | 実出勤日時       |
+| clock_out_at       | 実退勤日時       |
+| working_minutes    | 実働分数         |
 | late_night_minutes | 深夜加算対象分数 |
-| timestamps | 作成・更新日時 |
+| timestamps         | 作成・更新日時   |
 
 制約:
 
@@ -255,14 +255,14 @@ UNIQUE制約により、複数店舗勤務、勤務と休の重複、休の複�
 
 ### 8.1 commissions
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| staff_id | アルバイトスタッフ |
-| year | 給与対象年 |
-| month | 給与対象月 |
-| amount | 歩合、整数円 |
-| timestamps | 作成・更新日時 |
+| カラム     | 概要               |
+| ---------- | ------------------ |
+| id         | 主キー             |
+| staff_id   | アルバイトスタッフ |
+| year       | 給与対象年         |
+| month      | 給与対象月         |
+| amount     | 歩合、整数円       |
+| timestamps | 作成・更新日時     |
 
 制約:
 
@@ -275,15 +275,15 @@ UNIQUE制約により、複数店舗勤務、勤務と休の重複、休の複�
 
 ### 9.1 income_tax_table_versions
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| tax_year | 対象年 |
-| name | 公式資料名 |
-| source_url | 国税庁資料URL |
+| カラム               | 概要                   |
+| -------------------- | ---------------------- |
+| id                   | 主キー                 |
+| tax_year             | 対象年                 |
+| name                 | 公式資料名             |
+| source_url           | 国税庁資料URL          |
 | source_hash nullable | 取込元ファイルの検証値 |
-| imported_at | 取込日時 |
-| timestamps | 作成・更新日時 |
+| imported_at          | 取込日時               |
+| timestamps           | 作成・更新日時         |
 
 制約:
 
@@ -291,19 +291,19 @@ UNIQUE制約により、複数店舗勤務、勤務と休の重複、休の複�
 
 ### 9.2 income_tax_rules
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| table_version_id | 年度版 |
-| tax_category | `ko` / `otsu` |
-| dependent_count nullable | 甲欄の扶養人数。乙欄はNULL |
-| min_amount | 参照額下限 |
-| max_amount nullable | 参照額上限 |
-| calculation_type | 固定額または公式算式の識別 |
-| fixed_tax_amount nullable | 固定額区間の税額 |
-| parameters nullable | 公式算式に必要な構造化パラメータ |
-| sort_order | 評価順 |
-| timestamps | 作成・更新日時 |
+| カラム                    | 概要                             |
+| ------------------------- | -------------------------------- |
+| id                        | 主キー                           |
+| table_version_id          | 年度版                           |
+| tax_category              | `ko` / `otsu`                    |
+| dependent_count nullable  | 甲欄の扶養人数。乙欄はNULL       |
+| min_amount                | 参照額下限                       |
+| max_amount nullable       | 参照額上限                       |
+| calculation_type          | 固定額または公式算式の識別       |
+| fixed_tax_amount nullable | 固定額区間の税額                 |
+| parameters nullable       | 公式算式に必要な構造化パラメータ |
+| sort_order                | 評価順                           |
+| timestamps                | 作成・更新日時                   |
 
 `parameters`に任意コードや評価式を保存しない。許可した計算型ごとの数値パラメータだけを保存し、計算ロジックは`IncomeTaxCalculationService`へ実装する。
 
@@ -317,33 +317,33 @@ UNIQUE制約により、複数店舗勤務、勤務と休の重複、休の複�
 
 ### 10.1 payrolls
 
-| カラム | 概要 |
-|---|---|
-| id | 主キー |
-| staff_id | アルバイトスタッフ |
-| year | 勤務対象年 |
-| month | 勤務対象月 |
-| payment_date | 翌月10日 |
-| tax_year | 使用税額表年度。支給年のスナップショット |
-| working_minutes | 全店舗総勤務分数 |
-| late_night_minutes | 全店舗深夜分数 |
-| base_pay | 確定基本給 |
-| late_night_pay | 確定深夜勤務手当 |
-| transportation_fee_total | 交通費合計 |
-| transportation_fee_taxable | 課税交通費 |
-| transportation_fee_non_taxable | 非課税交通費 |
-| commission | 歩合 |
-| gross_pay | 総支給額 |
-| taxable_pay | 課税対象支給額 |
-| social_insurance_deduction | 税額表上の社会保険料等控除 |
-| tax_table_reference_amount | 税額表参照額 |
-| income_tax | 所得税・復興特別所得税込み |
-| other_deductions | その他控除 |
-| total_deductions | 総控除額 |
-| net_pay | 差引総支給額 |
-| needs_recalculation | 入力変更後の再計算要否 |
-| calculated_at | 最終計算日時 |
-| timestamps | 作成・更新日時 |
+| カラム                         | 概要                                     |
+| ------------------------------ | ---------------------------------------- |
+| id                             | 主キー                                   |
+| staff_id                       | アルバイトスタッフ                       |
+| year                           | 勤務対象年                               |
+| month                          | 勤務対象月                               |
+| payment_date                   | 翌月10日                                 |
+| tax_year                       | 使用税額表年度。支給年のスナップショット |
+| working_minutes                | 全店舗総勤務分数                         |
+| late_night_minutes             | 全店舗深夜分数                           |
+| base_pay                       | 確定基本給                               |
+| late_night_pay                 | 確定深夜勤務手当                         |
+| transportation_fee_total       | 交通費合計                               |
+| transportation_fee_taxable     | 課税交通費                               |
+| transportation_fee_non_taxable | 非課税交通費                             |
+| commission                     | 歩合                                     |
+| gross_pay                      | 総支給額                                 |
+| taxable_pay                    | 課税対象支給額                           |
+| social_insurance_deduction     | 税額表上の社会保険料等控除               |
+| tax_table_reference_amount     | 税額表参照額                             |
+| income_tax                     | 所得税・復興特別所得税込み               |
+| other_deductions               | その他控除                               |
+| total_deductions               | 総控除額                                 |
+| net_pay                        | 差引総支給額                             |
+| needs_recalculation            | 入力変更後の再計算要否                   |
+| calculated_at                  | 最終計算日時                             |
+| timestamps                     | 作成・更新日時                           |
 
 制約:
 

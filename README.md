@@ -2,7 +2,7 @@
 
 株式会社Groovy向けのシフト・勤怠・給与管理システムです。
 
-現在は実装準備段階です。確定仕様と実装計画は、リポジトリ内の次の文書を正本として管理します。
+確定仕様と実装計画は、リポジトリ内の次の文書を正本として管理します。
 
 - [業務・機能要件](docs/requirements.md)
 - [計算ルール](docs/calculation-rules.md)
@@ -13,7 +13,62 @@
 - [仕様変更履歴](docs/changelog.md)
 - [設計判断記録](docs/adr/README.md)
 
-ローカル開発環境はDocker Composeで構築します。起動方法、初期セットアップ、テストコマンドはPhase 0の実装時に本READMEへ追記します。
+## 技術構成
+
+- Laravel 13 / PHP 8.4
+- Inertia.js 3 / React 19 / TypeScript
+- Tailwind CSS 4 / Vite 8
+- MySQL 8.4
+- Docker Compose（PHP-FPM、Nginx、MySQL、Node/Vite）
+
+## 必要なもの
+
+- Docker Desktop（Docker Composeを含む）
+- ホスト側のPHP、Composer、Node.jsは不要
+
+## 初期セットアップ
+
+```bash
+./bin/setup
+```
+
+セットアップ後、<http://localhost:8082> を開きます。
+
+ローカル開発用の初期管理者は次の通りです。
+
+- メールアドレス: `admin@example.com`
+- パスワード: `password`
+
+これらは `.env` の `INITIAL_ADMIN_*` で変更できます。本番環境ではデフォルトパスワードを使用できません。公開ユーザー登録は無効です。
+
+## 日常の開発コマンド
+
+```bash
+# 起動
+docker compose up -d
+
+# 停止（DBデータは保持）
+docker compose down
+
+# MigrationとSeeder
+docker compose run --rm app php artisan migrate --seed
+
+# PHPフォーマット・静的解析・テスト
+docker compose run --rm app composer test
+
+# フロントエンドのフォーマット・Lint
+docker compose run --rm node npm run check
+
+# TypeScript型チェック
+docker compose run --rm node npm run types:check
+
+# 本番用フロントエンドビルド
+docker compose run --rm node npm run build
+```
+
+テストはDocker内のSQLiteインメモリDBを使用し、開発用MySQLのデータには影響しません。
+
+ポートが重複する場合は `.env` の `APP_PORT`、`VITE_PORT`、`FORWARD_DB_PORT` を変更してください。
 
 ## 文書の更新方針
 

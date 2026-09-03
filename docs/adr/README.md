@@ -11,11 +11,11 @@ ADRは、要件を満たすために選択した重要な実装方式と理由�
 
 ## 一覧
 
-| ADR | タイトル | 状態 |
-|---|---|---|
-| [0001](0001-docker-compose.md) | ローカル開発にDocker Composeを使用する | Accepted |
-| [0002](0002-global-day-off.md) | 休みを店舗非依存のシフト行として保存する | Accepted |
-| [0003](0003-work-date-late-night.md) | 深夜加算区間をwork_dateから構築する | Accepted |
+| ADR                                  | タイトル                                 | 状態     |
+| ------------------------------------ | ---------------------------------------- | -------- |
+| [0001](0001-docker-compose.md)       | ローカル開発にDocker Composeを使用する   | Accepted |
+| [0002](0002-global-day-off.md)       | 休みを店舗非依存のシフト行として保存する | Accepted |
+| [0003](0003-work-date-late-night.md) | 深夜加算区間をwork_dateから構築する      | Accepted |
 
 ## 作成ルール
 
