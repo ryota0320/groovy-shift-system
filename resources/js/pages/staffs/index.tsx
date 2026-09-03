@@ -17,10 +17,21 @@ type Staff = {
 };
 
 type Filters = {
-    date: string;
     employment_type: string;
     status: string;
     search: string;
+};
+
+type StaffPagination = {
+    data: Staff[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    from: number | null;
+    to: number | null;
+    total: number;
+    prev_page_url: string | null;
+    next_page_url: string | null;
 };
 
 const yen = new Intl.NumberFormat('ja-JP');
@@ -29,7 +40,7 @@ export default function StaffIndex({
     staffs,
     filters,
 }: {
-    staffs: Staff[];
+    staffs: StaffPagination;
     filters: Filters;
 }) {
     return (
@@ -38,7 +49,7 @@ export default function StaffIndex({
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <MasterPageHeader
                     title="スタッフ管理"
-                    description="対象日時点の在籍、所属店舗、時給を確認できます。"
+                    description="本日時点の在籍、所属店舗、時給を確認できます。"
                     actions={
                         <div className="flex flex-wrap gap-2">
                             <Button variant="outline" asChild>
@@ -60,9 +71,9 @@ export default function StaffIndex({
                 <Form
                     action="/staffs"
                     method="get"
-                    className="border-border bg-card grid gap-4 rounded-xl border p-4 shadow-sm md:grid-cols-5 md:items-end"
+                    className="border-border bg-card grid gap-4 rounded-xl border p-4 shadow-sm md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
                 >
-                    <div className="grid gap-2 md:col-span-2">
+                    <div className="grid gap-2">
                         <Label htmlFor="search">氏名検索</Label>
                         <Input
                             id="search"
@@ -97,34 +108,20 @@ export default function StaffIndex({
                             <option value="retired">対象外・退職</option>
                         </select>
                     </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="date">対象日</Label>
-                        <div className="flex gap-2">
-                            <Input
-                                id="date"
-                                name="date"
-                                type="date"
-                                defaultValue={filters.date}
-                            />
-                            <Button
-                                type="submit"
-                                size="icon"
-                                aria-label="絞り込む"
-                            >
-                                <Search />
-                            </Button>
-                        </div>
-                    </div>
+                    <Button type="submit">
+                        <Search />
+                        検索
+                    </Button>
                 </Form>
 
-                {staffs.length === 0 ? (
+                {staffs.data.length === 0 ? (
                     <div className="border-border bg-card text-muted-foreground rounded-xl border border-dashed p-10 text-center text-sm">
                         条件に一致するスタッフはいません。
                     </div>
                 ) : (
                     <>
                         <div className="grid gap-3 md:hidden">
-                            {staffs.map((staff) => (
+                            {staffs.data.map((staff) => (
                                 <StaffCard key={staff.id} staff={staff} />
                             ))}
                         </div>
@@ -154,7 +151,7 @@ export default function StaffIndex({
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                        {staffs.map((staff) => (
+                                        {staffs.data.map((staff) => (
                                             <tr key={staff.id}>
                                                 <td className="px-4 py-3 font-medium">
                                                     {staff.name}
@@ -200,6 +197,50 @@ export default function StaffIndex({
                             </div>
                         </div>
                     </>
+                )}
+
+                {staffs.total > 0 && (
+                    <nav
+                        aria-label="スタッフ一覧のページ"
+                        className="flex flex-col items-center justify-between gap-3 sm:flex-row"
+                    >
+                        <p className="text-muted-foreground text-sm tabular-nums">
+                            {staffs.from}〜{staffs.to}件／全{staffs.total}件
+                        </p>
+                        <div className="flex items-center gap-2">
+                            {staffs.prev_page_url ? (
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link
+                                        href={staffs.prev_page_url}
+                                        preserveScroll
+                                    >
+                                        前へ
+                                    </Link>
+                                </Button>
+                            ) : (
+                                <Button variant="outline" size="sm" disabled>
+                                    前へ
+                                </Button>
+                            )}
+                            <span className="text-sm tabular-nums">
+                                {staffs.current_page}／{staffs.last_page}ページ
+                            </span>
+                            {staffs.next_page_url ? (
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link
+                                        href={staffs.next_page_url}
+                                        preserveScroll
+                                    >
+                                        次へ
+                                    </Link>
+                                </Button>
+                            ) : (
+                                <Button variant="outline" size="sm" disabled>
+                                    次へ
+                                </Button>
+                            )}
+                        </div>
+                    </nav>
                 )}
             </div>
         </>

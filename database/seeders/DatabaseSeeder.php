@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(IncomeTaxTableSeeder::class);
+
         foreach (['46', 'オニカイ', '蛸福'] as $storeName) {
             Store::query()->updateOrCreate(
                 ['name' => $storeName],

@@ -14,7 +14,6 @@ use App\Services\ShiftMasterDataGuard;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -31,13 +30,12 @@ class StaffController extends Controller
     public function index(Request $request): Response
     {
         $filters = $request->validate([
-            'date' => ['nullable', 'date'],
             'employment_type' => ['nullable', Rule::enum(EmploymentType::class)],
             'status' => ['nullable', Rule::in(['employed', 'retired'])],
             'search' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $targetDate = Carbon::parse($filters['date'] ?? today())->toDateString();
+        $targetDate = today()->toDateString();
         $employmentType = isset($filters['employment_type'])
             ? EmploymentType::from($filters['employment_type'])
             : null;
@@ -47,6 +45,17 @@ class StaffController extends Controller
         $staffs = Staff::query()
             ->when($employmentType, fn (Builder $query) => $query->where('employment_type', $employmentType->value))
             ->when($search !== '', fn (Builder $query) => $query->where('name', 'like', "%{$search}%"))
+            ->when($status === 'employed', fn (Builder $query) => $query
+                ->where(fn (Builder $query) => $query
+                    ->whereNull('hired_at')
+                    ->orWhereDate('hired_at', '<=', $targetDate))
+                ->where(fn (Builder $query) => $query
+                    ->whereNull('retired_at')
+                    ->orWhereDate('retired_at', '>=', $targetDate)))
+            ->when($status === 'retired', fn (Builder $query) => $query
+                ->where(fn (Builder $query) => $query
+                    ->whereDate('hired_at', '>', $targetDate)
+                    ->orWhereDate('retired_at', '<', $targetDate)))
             ->with([
                 'storeAssignments' => fn ($query) => $query
                     ->whereDate('effective_from', '<=', $targetDate)
@@ -60,17 +69,10 @@ class StaffController extends Controller
                         ->whereNull('effective_to')
                         ->orWhereDate('effective_to', '>=', $targetDate)),
             ])
-            ->orderBy('name')
-            ->get()
-            ->filter(function (Staff $staff) use ($status, $targetDate): bool {
-                return match ($status) {
-                    'employed' => $staff->isEmployedOn($targetDate),
-                    'retired' => ! $staff->isEmployedOn($targetDate),
-                    default => true,
-                };
-            })
-            ->values()
-            ->map(fn (Staff $staff): array => [
+            ->inDisplayOrder()
+            ->paginate(25)
+            ->withQueryString()
+            ->through(fn (Staff $staff): array => [
                 'id' => $staff->id,
                 'name' => $staff->name,
                 'employment_type' => $staff->employment_type->value,
@@ -86,7 +88,6 @@ class StaffController extends Controller
         return Inertia::render('staffs/index', [
             'staffs' => $staffs,
             'filters' => [
-                'date' => $targetDate,
                 'employment_type' => $employmentType === null ? '' : $employmentType->value,
                 'status' => in_array($status, ['employed', 'retired'], true) ? $status : '',
                 'search' => $search,
@@ -100,7 +101,7 @@ class StaffController extends Controller
             'stores' => Store::query()
                 ->where('is_active', true)
                 ->orderBy('name')
-                ->get(['id', 'name', 'is_active']),
+                ->get(['id', 'name', 'opening_time', 'closing_time', 'is_active']),
             'today' => today()->toDateString(),
         ]);
     }
@@ -196,7 +197,7 @@ class StaffController extends Controller
                         'effective_to' => $setting->effective_to?->toDateString(),
                     ]),
             ],
-            'stores' => Store::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active']),
+            'stores' => Store::query()->orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'opening_time', 'closing_time', 'is_active']),
             'options' => [
                 'transportation_tax_types' => collect(TransportationTaxType::cases())
                     ->map(fn (TransportationTaxType $type): array => ['value' => $type->value, 'label' => $type->label()]),

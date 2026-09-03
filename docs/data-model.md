@@ -63,12 +63,14 @@ stores 1 ── * store_holidays
 
 ### 4.1 stores
 
-| カラム     | 概要           |
-| ---------- | -------------- |
-| id         | 主キー         |
-| name       | 店舗名         |
-| is_active  | 現在利用可能か |
-| timestamps | 作成・更新日時 |
+| カラム       | 概要                                     |
+| ------------ | ---------------------------------------- |
+| id           | 主キー                                   |
+| name         | 店舗名                                   |
+| opening_time | 開店時間。シフト開始時刻候補の下限に使用 |
+| closing_time | 閉店時間。シフト開始時刻候補の上限に使用 |
+| is_active    | 現在利用可能か                           |
+| timestamps   | 作成・更新日時                           |
 
 店舗名の重複可否は実装前に既存運用を確認し、原則として有効店舗間の同名を避ける。
 
@@ -121,6 +123,23 @@ stores 1 ── * store_holidays
 - INDEX(`staff_id`, `effective_from`, `effective_to`)
 - INDEX(`store_id`, `effective_from`, `effective_to`)
 - 同じスタッフ×店舗の期間重複禁止
+
+### 5.2.1 staff_store_display_orders
+
+月間シフトのスタッフ表示順を店舗ごとに保持する。未登録のスタッフは社員ID昇順、アルバイトID昇順の基本順を使用する。
+
+| カラム     | 概要                      |
+| ---------- | ------------------------- |
+| id         | 主キー                    |
+| store_id   | 表示対象店舗              |
+| staff_id   | スタッフ                  |
+| position   | 店舗内の表示位置、0始まり |
+| timestamps | 作成・更新日時            |
+
+制約:
+
+- UNIQUE(`store_id`, `staff_id`)
+- INDEX(`store_id`, `position`)
 
 ### 5.3 staff_wage_rates
 

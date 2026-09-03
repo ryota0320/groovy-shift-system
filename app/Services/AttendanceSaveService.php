@@ -133,15 +133,23 @@ class AttendanceSaveService
             ]);
         }
 
-        $nonWorkingShift = Shift::query()
+        $scheduledShift = Shift::query()
             ->where('staff_id', $staff->id)
             ->whereDate('shift_date', $workDate)
-            ->whereIn('shift_type', [ShiftType::Off->value, ShiftType::Absence->value])
-            ->exists();
+            ->first();
 
-        if ($nonWorkingShift) {
+        if ($scheduledShift !== null
+            && in_array($scheduledShift->shift_type, [ShiftType::Off, ShiftType::Absence], true)) {
             throw ValidationException::withMessages([
                 "records.{$index}.staff_id" => '休みまたは急な休みのスタッフへ勤怠を登録できません。',
+            ]);
+        }
+
+        if ($scheduledShift !== null
+            && in_array($scheduledShift->shift_type, [ShiftType::Time, ShiftType::Early], true)
+            && $scheduledShift->store_id !== $store->id) {
+            throw ValidationException::withMessages([
+                "records.{$index}.staff_id" => '同じ営業日に別店舗の勤務予定があります。',
             ]);
         }
 

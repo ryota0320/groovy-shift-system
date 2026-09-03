@@ -1,5 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { Building2, CalendarDays, Plus } from 'lucide-react';
+import { Building2, CalendarDays, Clock3, Plus } from 'lucide-react';
 import InputError from '@/components/input-error';
 import MasterPageHeader from '@/components/master-page-header';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 type Store = {
     id: number;
     name: string;
+    opening_time: string;
+    closing_time: string;
     is_active: boolean;
     holidays_count: number;
 };
@@ -21,7 +23,7 @@ export default function StoreIndex({ stores }: { stores: Store[] }) {
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <MasterPageHeader
                     title="店舗管理"
-                    description="店舗の追加、名称変更、有効・無効、店休日を管理します。"
+                    description="店舗の追加、名称変更、開店・閉店時間、有効・無効、店休日を管理します。"
                 />
 
                 <section className="border-border bg-card rounded-xl border p-4 shadow-sm md:p-5">
@@ -33,7 +35,7 @@ export default function StoreIndex({ stores }: { stores: Store[] }) {
                         action="/stores"
                         method="post"
                         resetOnSuccess
-                        className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end"
+                        className="mt-4 grid gap-4 sm:grid-cols-2 sm:items-end xl:grid-cols-[minmax(0,1fr)_11rem_11rem_auto]"
                     >
                         {({ processing, errors }) => (
                             <>
@@ -46,6 +48,34 @@ export default function StoreIndex({ stores }: { stores: Store[] }) {
                                         required
                                     />
                                     <InputError message={errors.name} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="store-opening-time">
+                                        開店時間
+                                    </Label>
+                                    <Input
+                                        id="store-opening-time"
+                                        name="opening_time"
+                                        type="time"
+                                        step="60"
+                                        defaultValue="17:00"
+                                        required
+                                    />
+                                    <InputError message={errors.opening_time} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="store-closing-time">
+                                        閉店時間
+                                    </Label>
+                                    <Input
+                                        id="store-closing-time"
+                                        name="closing_time"
+                                        type="time"
+                                        step="60"
+                                        defaultValue="10:00"
+                                        required
+                                    />
+                                    <InputError message={errors.closing_time} />
                                 </div>
                                 <input
                                     type="hidden"
@@ -89,6 +119,11 @@ export default function StoreIndex({ stores }: { stores: Store[] }) {
                                                     <CalendarDays className="size-4" />
                                                     店休日{' '}
                                                     {store.holidays_count}件
+                                                </p>
+                                                <p className="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
+                                                    <Clock3 className="size-4" />
+                                                    営業 {store.opening_time}〜
+                                                    {store.closing_time}
                                                 </p>
                                             </div>
                                         </div>

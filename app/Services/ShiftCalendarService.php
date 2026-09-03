@@ -60,7 +60,7 @@ class ShiftCalendarService
                     ])
                     ->with('store:id,name'),
             ])
-            ->orderBy('name')
+            ->inDisplayOrder($store->id)
             ->get();
 
         $days = array_values(collect(range(1, $periodEnd->day))
@@ -118,9 +118,14 @@ class ShiftCalendarService
                                     'date' => $date,
                                     'eligible' => $eligible,
                                     'editable' => $store->is_active
-                                        && ! $holidays->has($date)
                                         && $eligible
-                                        && $inconsistency === null,
+                                        && $inconsistency === null
+                                        && $this->isEditableForContextHoliday(
+                                            $holidays->has($date),
+                                            $shift,
+                                            $store,
+                                            $availableStoreIds,
+                                        ),
                                     'available_store_ids' => $availableStoreIds,
                                     'conflict_store' => null,
                                     'inconsistency' => $inconsistency,
@@ -183,7 +188,7 @@ class ShiftCalendarService
                     ->whereDate('shift_date', $dateString)
                     ->with('store:id,name'),
             ])
-            ->orderBy('name')
+            ->inDisplayOrder($store->id)
             ->get();
 
         return [
@@ -213,9 +218,14 @@ class ShiftCalendarService
                         'employment_type_label' => $staff->employment_type->label(),
                         'eligible' => $eligible,
                         'editable' => $store->is_active
-                            && ! $isHoliday
                             && $eligible
-                            && $inconsistency === null,
+                            && $inconsistency === null
+                            && $this->isEditableForContextHoliday(
+                                $isHoliday,
+                                $shift,
+                                $store,
+                                $availableStoreIds,
+                            ),
                         'available_store_ids' => $availableStoreIds,
                         'conflict_store' => null,
                         'inconsistency' => $inconsistency,
@@ -264,7 +274,7 @@ class ShiftCalendarService
                     ->orWhereDate('effective_to', '>=', $date))
                 ->whereHas('store', fn ($query) => $query->where('is_active', true))
                 ->with('store:id,name')])
-            ->orderBy('name')
+            ->inDisplayOrder()
             ->get()
             ->map(fn (Staff $staff): array => [
                 'id' => $staff->id,
@@ -380,5 +390,29 @@ class ShiftCalendarService
         return $store->holidays->contains(
             fn ($holiday): bool => $holiday->holiday_date->toDateString() === $date,
         );
+    }
+
+    /** @param list<int> $availableStoreIds */
+    private function isEditableForContextHoliday(
+        bool $contextHoliday,
+        ?Shift $shift,
+        Store $contextStore,
+        array $availableStoreIds,
+    ): bool {
+        if (! $contextHoliday) {
+            return true;
+        }
+
+        if ($availableStoreIds === []) {
+            return false;
+        }
+
+        if ($shift === null) {
+            return true;
+        }
+
+        return in_array($shift->shift_type, [ShiftType::Time, ShiftType::Early], true)
+            && $shift->store_id !== $contextStore->id
+            && in_array($shift->store_id, $availableStoreIds, true);
     }
 }

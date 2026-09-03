@@ -19,6 +19,12 @@ class AttendanceCalendarService
         $date = $workDate->toDateString();
         $isHoliday = $store->holidays()->whereDate('holiday_date', $date)->exists();
         $assignedStaffIds = Staff::query()
+            ->where(function (Builder $query) use ($date): void {
+                $query->whereNull('hired_at')->orWhereDate('hired_at', '<=', $date);
+            })
+            ->where(function (Builder $query) use ($date): void {
+                $query->whereNull('retired_at')->orWhereDate('retired_at', '>=', $date);
+            })
             ->whereHas('storeAssignments', fn ($query) => $query
                 ->where('store_id', $store->id)
                 ->whereDate('effective_from', '<=', $date)
@@ -30,9 +36,8 @@ class AttendanceCalendarService
             ->whereDate('shift_date', $date)
             ->where(fn (Builder $query) => $query
                 ->where('store_id', $store->id)
-                ->orWhere(fn (Builder $query) => $query
-                    ->where('shift_type', ShiftType::Absence->value)
-                    ->whereIn('staff_id', $assignedStaffIds)))
+                ->orWhereIn('staff_id', $assignedStaffIds))
+            ->with('store:id,name')
             ->get()
             ->keyBy('staff_id');
         $selectedAttendances = AttendanceRecord::query()
@@ -40,7 +45,10 @@ class AttendanceCalendarService
             ->whereDate('work_date', $date)
             ->get()
             ->keyBy('staff_id');
-        $rowStaffIds = $shifts->keys()->merge($selectedAttendances->keys())->unique();
+        $rowStaffIds = $assignedStaffIds
+            ->merge($shifts->keys())
+            ->merge($selectedAttendances->keys())
+            ->unique();
         $staffs = Staff::query()
             ->whereKey($rowStaffIds)
             ->with([
@@ -51,7 +59,7 @@ class AttendanceCalendarService
                     ->whereDate('work_date', $date)
                     ->with('store:id,name'),
             ])
-            ->orderBy('name')
+            ->inDisplayOrder($store->id)
             ->get();
 
         $rows = $staffs->map(function (Staff $staff) use ($date, $store, $shifts, $selectedAttendances): array {
@@ -59,8 +67,17 @@ class AttendanceCalendarService
             $shift = $shifts->get($staff->id);
             /** @var AttendanceRecord|null $attendance */
             $attendance = $selectedAttendances->get($staff->id);
+            $source = $shift !== null
+                ? 'scheduled'
+                : ($attendance !== null ? 'sudden' : 'unplanned');
             $otherAttendance = $staff->attendanceRecords
                 ->first(fn (AttendanceRecord $record): bool => $record->store_id !== $store->id);
+            $otherWorkShift = $shift !== null
+                && in_array($shift->shift_type, [ShiftType::Time, ShiftType::Early], true)
+                && $shift->store_id !== $store->id
+                ? $shift
+                : null;
+            $conflictStore = $otherAttendance?->store->name ?? $otherWorkShift?->store?->name;
             $eligible = $staff->isEmployedOn($date)
                 && ($staff->storeAssignments->isNotEmpty() || $shift !== null);
 
@@ -69,12 +86,12 @@ class AttendanceCalendarService
                 'name' => $staff->name,
                 'employment_type' => $staff->employment_type->value,
                 'employment_type_label' => $staff->employment_type->label(),
-                'source' => $shift === null ? 'sudden' : 'scheduled',
+                'source' => $source,
                 'eligible' => $eligible,
-                'editable' => $shift?->shift_type !== ShiftType::Absence
-                    && ($attendance !== null || ($store->is_active && $eligible && $otherAttendance === null)),
-                'conflict_store' => $otherAttendance?->store->name,
-                'shift' => $this->shiftPayload($shift),
+                'editable' => ! in_array($shift?->shift_type, [ShiftType::Off, ShiftType::Absence], true)
+                    && ($attendance !== null || ($store->is_active && $eligible && $conflictStore === null)),
+                'conflict_store' => $conflictStore,
+                'shift' => $this->shiftPayload($shift, $source, $store),
                 'attendance' => $this->attendancePayload($attendance, $date, $shift),
             ];
         })->values();
@@ -124,7 +141,7 @@ class AttendanceCalendarService
                     ->orWhereDate('effective_to', '>=', $date))
                 ->whereHas('store', fn ($query) => $query->where('is_active', true))
                 ->with('store:id,name')])
-            ->orderBy('name')
+            ->inDisplayOrder()
             ->get()
             ->map(fn (Staff $staff): array => [
                 'id' => $staff->id,
@@ -143,14 +160,25 @@ class AttendanceCalendarService
     }
 
     /** @return array{type: string|null, display: string, start_offset_minutes: int|null} */
-    private function shiftPayload(?Shift $shift): array
-    {
+    private function shiftPayload(
+        ?Shift $shift,
+        string $source = 'scheduled',
+        ?Store $contextStore = null,
+    ): array {
         if ($shift === null) {
-            return ['type' => null, 'display' => '急な出勤', 'start_offset_minutes' => null];
+            return [
+                'type' => null,
+                'display' => $source === 'unplanned' ? 'シフト未設定' : '急な出勤',
+                'start_offset_minutes' => null,
+            ];
         }
 
         if ($shift->shift_type === ShiftType::Early) {
-            return ['type' => 'early', 'display' => '早番', 'start_offset_minutes' => null];
+            $prefix = $contextStore !== null && $shift->store_id !== $contextStore->id
+                ? $shift->store?->name.' '
+                : '';
+
+            return ['type' => 'early', 'display' => $prefix.'早番', 'start_offset_minutes' => null];
         }
 
         if ($shift->shift_type === ShiftType::Absence) {
@@ -168,10 +196,13 @@ class AttendanceCalendarService
         if ($hour <= 10) {
             $offset += 24 * 60;
         }
+        $prefix = $contextStore !== null && $shift->store_id !== $contextStore->id
+            ? $shift->store?->name.' '
+            : '';
 
         return [
             'type' => 'time',
-            'display' => $hour.':'.sprintf('%02d', $minute),
+            'display' => $prefix.$hour.':'.sprintf('%02d', $minute),
             'start_offset_minutes' => $offset,
         ];
     }

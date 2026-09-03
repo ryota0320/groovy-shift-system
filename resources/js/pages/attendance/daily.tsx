@@ -336,6 +336,20 @@ export default function DailyAttendance({
     const remainingAddable = addableStaffs.filter(
         (staff) => !addedStaffIds.includes(staff.id),
     );
+    const replacementCandidates: AddableAttendanceStaff[] = [
+        ...staffs
+            .filter((staff) => staff.source === 'unplanned')
+            .map((staff) => ({
+                id: staff.staff_id,
+                name: staff.name,
+                employment_type: staff.employment_type,
+                employment_type_label: staff.employment_type_label,
+                assignment_store_names: selectedStore
+                    ? [selectedStore.name]
+                    : [],
+            })),
+        ...remainingAddable,
+    ];
     const previews = visibleStaffs.map((staff) =>
         calculateAttendancePreview(
             values[staff.staff_id] ?? emptyValue,
@@ -360,7 +374,7 @@ export default function DailyAttendance({
             <div className="flex h-full min-w-0 flex-1 flex-col gap-5 p-4 pb-24 md:p-6 md:pb-6">
                 <MasterPageHeader
                     title="日次勤怠"
-                    description="営業日を基準に勤怠を登録し、予定者の急な休みも設定できます。"
+                    description="所属スタッフを含めて営業日の勤怠を登録し、急な休みや代替勤務も設定できます。"
                 />
 
                 <section className="border-border bg-card grid gap-4 rounded-xl border p-4 shadow-sm sm:grid-cols-[minmax(180px,1fr)_minmax(170px,1fr)_auto] sm:items-end">
@@ -517,7 +531,7 @@ export default function DailyAttendance({
                                         openReplacement(staff)
                                     }
                                     replacementCandidatesAvailable={
-                                        remainingAddable.length > 0
+                                        replacementCandidates.length > 0
                                     }
                                     markingAbsent={
                                         markingAbsentStaffId === staff.staff_id
@@ -536,7 +550,7 @@ export default function DailyAttendance({
                             onMarkAbsent={markAbsent}
                             onAddReplacement={openReplacement}
                             replacementCandidatesAvailable={
-                                remainingAddable.length > 0
+                                replacementCandidates.length > 0
                             }
                             markingAbsentStaffId={markingAbsentStaffId}
                             onRemove={removeAddedStaff}
@@ -589,7 +603,7 @@ export default function DailyAttendance({
                                     className="border-input bg-background h-10 rounded-md border px-3 text-sm"
                                 >
                                     <option value="">スタッフを選択</option>
-                                    {remainingAddable.map((staff) => (
+                                    {replacementCandidates.map((staff) => (
                                         <option key={staff.id} value={staff.id}>
                                             {staff.name}（
                                             {staff.employment_type_label}
@@ -727,7 +741,9 @@ function AttendanceCard({
                         ? '急な休み'
                         : staff.source === 'sudden'
                           ? '急な出勤'
-                          : 'シフトあり'}
+                          : staff.source === 'unplanned'
+                            ? 'シフト未設定'
+                            : 'シフトあり'}
                 </Badge>
             </div>
             {staff.conflict_store ? (
@@ -1123,6 +1139,9 @@ function attendanceRowWarning(
     }
     if (staff.shift.type === 'absence') {
         return '急な休み';
+    }
+    if (staff.source === 'unplanned') {
+        return 'シフト未設定';
     }
 
     return preview.warning ?? '—';

@@ -13,6 +13,7 @@ export type User = {
 
 export type Auth = {
     user: User;
+    can_view_income_tax_status: boolean;
 };
 
 export type Passkey = {

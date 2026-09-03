@@ -1,5 +1,5 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, CalendarPlus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarPlus, Trash2 } from 'lucide-react';
 import InputError from '@/components/input-error';
 import MasterPageHeader from '@/components/master-page-header';
 import { Button } from '@/components/ui/button';
@@ -10,16 +10,45 @@ import { Label } from '@/components/ui/label';
 type Store = {
     id: number;
     name: string;
+    opening_time: string;
+    closing_time: string;
     is_active: boolean;
     holidays: Array<{ id: number; holiday_date: string }>;
 };
 
-export default function StoreEdit({ store }: { store: Store }) {
+type Props = {
+    store: Store;
+    holiday_month: string;
+    holiday_month_label: string;
+    holiday_month_end: string;
+    previous_holiday_month: string;
+    next_holiday_month: string;
+};
+
+export default function StoreEdit({
+    store,
+    holiday_month: holidayMonth,
+    holiday_month_label: holidayMonthLabel,
+    holiday_month_end: holidayMonthEnd,
+    previous_holiday_month: previousHolidayMonth,
+    next_holiday_month: nextHolidayMonth,
+}: Props) {
+    const moveHolidayMonth = (month: string) => {
+        router.get(
+            `/stores/${store.id}/edit`,
+            { holiday_month: month },
+            { preserveScroll: true, preserveState: false, replace: true },
+        );
+    };
+
     const removeHoliday = (holidayId: number) => {
         if (window.confirm('この店休日を削除しますか？')) {
-            router.delete(`/stores/${store.id}/holidays/${holidayId}`, {
-                preserveScroll: true,
-            });
+            router.delete(
+                `/stores/${store.id}/holidays/${holidayId}?holiday_month=${holidayMonth}`,
+                {
+                    preserveScroll: true,
+                },
+            );
         }
     };
 
@@ -29,7 +58,7 @@ export default function StoreEdit({ store }: { store: Store }) {
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <MasterPageHeader
                     title={store.name}
-                    description="店舗情報と店休日を管理します。無効化しても過去データは保持されます。"
+                    description="店舗情報、開店・閉店時間、店休日を管理します。無効化しても過去データは保持されます。"
                     actions={
                         <Button variant="outline" asChild>
                             <Link href="/stores">
@@ -60,6 +89,44 @@ export default function StoreEdit({ store }: { store: Store }) {
                                             required
                                         />
                                         <InputError message={errors.name} />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="opening-time">
+                                            開店時間
+                                        </Label>
+                                        <Input
+                                            id="opening-time"
+                                            name="opening_time"
+                                            type="time"
+                                            step="60"
+                                            defaultValue={store.opening_time}
+                                            required
+                                        />
+                                        <p className="text-muted-foreground text-xs">
+                                            シフトの勤務開始時刻は、この時刻以降から選択できます。
+                                        </p>
+                                        <InputError
+                                            message={errors.opening_time}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="closing-time">
+                                            閉店時間
+                                        </Label>
+                                        <Input
+                                            id="closing-time"
+                                            name="closing_time"
+                                            type="time"
+                                            step="60"
+                                            defaultValue={store.closing_time}
+                                            required
+                                        />
+                                        <p className="text-muted-foreground text-xs">
+                                            開店時間より早い時刻は、翌日の閉店時間として扱います。
+                                        </p>
+                                        <InputError
+                                            message={errors.closing_time}
+                                        />
                                     </div>
                                     <input
                                         type="hidden"
@@ -92,8 +159,53 @@ export default function StoreEdit({ store }: { store: Store }) {
                     <section className="border-border bg-card rounded-xl border p-5 shadow-sm">
                         <h2 className="flex items-center gap-2 font-semibold">
                             <CalendarPlus className="text-primary size-5" />
-                            店休日を追加
+                            店休日
                         </h2>
+
+                        <div className="bg-muted/40 mt-4 rounded-lg border p-3">
+                            <Label htmlFor="holiday-month">対象年月</Label>
+                            <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    aria-label="前月の店休日を表示"
+                                    onClick={() =>
+                                        moveHolidayMonth(previousHolidayMonth)
+                                    }
+                                >
+                                    <ArrowLeft />
+                                </Button>
+                                <Input
+                                    id="holiday-month"
+                                    type="month"
+                                    value={holidayMonth}
+                                    onChange={(event) =>
+                                        moveHolidayMonth(event.target.value)
+                                    }
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    aria-label="翌月の店休日を表示"
+                                    onClick={() =>
+                                        moveHolidayMonth(nextHolidayMonth)
+                                    }
+                                >
+                                    <ArrowRight />
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="mt-5 flex items-center justify-between gap-3">
+                            <h3 className="font-medium">
+                                {holidayMonthLabel}に追加
+                            </h3>
+                            <span className="text-muted-foreground text-sm">
+                                登録済み {store.holidays.length}件
+                            </span>
+                        </div>
                         <Form
                             action={`/stores/${store.id}/holidays`}
                             method="post"
@@ -103,6 +215,11 @@ export default function StoreEdit({ store }: { store: Store }) {
                         >
                             {({ processing, errors }) => (
                                 <>
+                                    <input
+                                        type="hidden"
+                                        name="holiday_month"
+                                        value={holidayMonth}
+                                    />
                                     <div className="grid flex-1 gap-2">
                                         <Label htmlFor="holiday-date">
                                             日付
@@ -111,6 +228,8 @@ export default function StoreEdit({ store }: { store: Store }) {
                                             id="holiday-date"
                                             name="holiday_date"
                                             type="date"
+                                            min={`${holidayMonth}-01`}
+                                            max={holidayMonthEnd}
                                             required
                                         />
                                         <InputError
@@ -130,7 +249,8 @@ export default function StoreEdit({ store }: { store: Store }) {
                         <div className="mt-6 space-y-2">
                             {store.holidays.length === 0 ? (
                                 <p className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
-                                    店休日は登録されていません。
+                                    {holidayMonthLabel}
+                                    の店休日は登録されていません。
                                 </p>
                             ) : (
                                 store.holidays.map((holiday) => (

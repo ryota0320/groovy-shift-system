@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { CalendarDays, Download, Rows3 } from 'lucide-react';
-import { useState } from 'react';
+import { CalendarDays, Download, GripVertical, Rows3 } from 'lucide-react';
+import { type DragEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import MasterPageHeader from '@/components/master-page-header';
 import ShiftSelect, {
@@ -37,7 +37,17 @@ export default function MonthlyShift({
 }: Props) {
     const [overrides, setOverrides] = useState<Record<string, string>>({});
     const [savingCell, setSavingCell] = useState<string | null>(null);
+    const [orderedStaffs, setOrderedStaffs] = useState(staffs);
+    const [draggedStaffId, setDraggedStaffId] = useState<number | null>(null);
+    const [dragOverStaffId, setDragOverStaffId] = useState<number | null>(null);
+    const [savingOrder, setSavingOrder] = useState(false);
     const storePlaceholder = storeSelectionPlaceholder(stores, selectedStore);
+
+    useEffect(() => {
+        setOrderedStaffs(staffs);
+        setDraggedStaffId(null);
+        setDragOverStaffId(null);
+    }, [staffs, selectedStore?.id, month]);
 
     const move = (storeId: string, targetMonth: string) => {
         router.get(
@@ -85,6 +95,75 @@ export default function MonthlyShift({
                     );
                 },
                 onFinish: () => setSavingCell(null),
+            },
+        );
+    };
+
+    const startDragging = (
+        event: DragEvent<HTMLButtonElement>,
+        staffId: number,
+    ) => {
+        setDraggedStaffId(staffId);
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', String(staffId));
+    };
+
+    const dropStaff = (
+        event: DragEvent<HTMLTableRowElement>,
+        targetStaffId: number,
+    ) => {
+        event.preventDefault();
+        const sourceStaffId =
+            draggedStaffId ?? Number(event.dataTransfer.getData('text/plain'));
+        setDraggedStaffId(null);
+        setDragOverStaffId(null);
+
+        if (
+            !selectedStore ||
+            savingOrder ||
+            !Number.isInteger(sourceStaffId) ||
+            sourceStaffId === targetStaffId
+        ) {
+            return;
+        }
+
+        const sourceIndex = orderedStaffs.findIndex(
+            (staff) => staff.id === sourceStaffId,
+        );
+        const targetIndex = orderedStaffs.findIndex(
+            (staff) => staff.id === targetStaffId,
+        );
+        if (sourceIndex < 0 || targetIndex < 0) return;
+
+        const previous = orderedStaffs;
+        const next = [...orderedStaffs];
+        const [moved] = next.splice(sourceIndex, 1);
+        if (!moved) return;
+        next.splice(targetIndex, 0, moved);
+        setOrderedStaffs(next);
+        setSavingOrder(true);
+
+        router.put(
+            '/shifts/monthly/order',
+            {
+                store_id: selectedStore.id,
+                staff_ids: next.map((staff) => staff.id),
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () =>
+                    toast.success('スタッフの並び順を保存しました。'),
+                onError: (errors) => {
+                    setOrderedStaffs(previous);
+                    toast.error(
+                        String(
+                            Object.values(errors)[0] ??
+                                '並び順の保存に失敗しました。',
+                        ),
+                    );
+                },
+                onFinish: () => setSavingOrder(false),
             },
         );
     };
@@ -157,10 +236,16 @@ export default function MonthlyShift({
                         />
                     </div>
                     <div className="text-muted-foreground flex flex-wrap gap-3 text-xs sm:ml-auto sm:pb-2">
+                        <span>
+                            {savingOrder
+                                ? '並び順を保存中…'
+                                : 'スタッフ名をドラッグして並び替え'}
+                        </span>
                         <span>00〜23：勤務開始時刻</span>
                         <span>早：早番</span>
                         <span>休：休み</span>
                         <span>勤務時は自店・ヘルプ先を選択</span>
+                        <span>店休日も営業中の他店ヘルプは入力可</span>
                     </div>
                 </section>
 
@@ -172,7 +257,7 @@ export default function MonthlyShift({
 
                 {!selectedStore ? (
                     <Empty message="シフトを管理する店舗がありません。" />
-                ) : staffs.length === 0 ? (
+                ) : orderedStaffs.length === 0 ? (
                     <Empty message="この期間に所属するスタッフはいません。" />
                 ) : (
                     <div className="border-border bg-card min-w-0 overflow-hidden rounded-xl border shadow-sm">
@@ -193,7 +278,7 @@ export default function MonthlyShift({
                                                     day.is_sunday &&
                                                         'bg-rose-50 text-rose-700 dark:bg-rose-950/40',
                                                     day.is_holiday &&
-                                                        'bg-amber-50 dark:bg-amber-950/40',
+                                                        'bg-orange-400 text-orange-950 dark:bg-orange-700 dark:text-white',
                                                 )}
                                             >
                                                 <span className="block tabular-nums">
@@ -202,23 +287,81 @@ export default function MonthlyShift({
                                                 <span className="block text-xs">
                                                     （{day.weekday}）
                                                 </span>
+                                                {day.is_holiday && (
+                                                    <span className="mt-1 inline-flex rounded bg-orange-950/15 px-1 py-0.5 text-[10px] leading-none font-bold dark:bg-white/20">
+                                                        店休
+                                                    </span>
+                                                )}
                                             </th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {staffs.map((staff) => (
-                                        <tr key={staff.id}>
-                                            <th className="bg-card sticky left-0 z-10 border-r border-b px-3 py-2 text-left font-medium">
-                                                <span className="block whitespace-nowrap">
-                                                    {staff.name}
-                                                </span>
-                                                <span className="text-muted-foreground block text-xs font-normal">
-                                                    {staff.employment_type ===
-                                                    'employee'
-                                                        ? '社員'
-                                                        : 'アルバイト'}
-                                                </span>
+                                    {orderedStaffs.map((staff) => (
+                                        <tr
+                                            key={staff.id}
+                                            onDragOver={(event) => {
+                                                if (
+                                                    draggedStaffId !== null &&
+                                                    draggedStaffId !== staff.id
+                                                ) {
+                                                    event.preventDefault();
+                                                    event.dataTransfer.dropEffect =
+                                                        'move';
+                                                    setDragOverStaffId(
+                                                        staff.id,
+                                                    );
+                                                }
+                                            }}
+                                            onDrop={(event) =>
+                                                dropStaff(event, staff.id)
+                                            }
+                                        >
+                                            <th
+                                                className={cn(
+                                                    'sticky left-0 z-10 border-r border-b px-2 py-2 text-left font-medium',
+                                                    dragOverStaffId === staff.id
+                                                        ? 'bg-primary/10'
+                                                        : 'bg-card',
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-1.5">
+                                                    <button
+                                                        type="button"
+                                                        draggable={!savingOrder}
+                                                        aria-label={`${staff.name}を並び替え`}
+                                                        title="ドラッグして並び替え"
+                                                        className="text-muted-foreground hover:bg-muted hover:text-foreground cursor-grab rounded p-1 active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
+                                                        disabled={savingOrder}
+                                                        onDragStart={(event) =>
+                                                            startDragging(
+                                                                event,
+                                                                staff.id,
+                                                            )
+                                                        }
+                                                        onDragEnd={() => {
+                                                            setDraggedStaffId(
+                                                                null,
+                                                            );
+                                                            setDragOverStaffId(
+                                                                null,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <GripVertical className="size-4" />
+                                                    </button>
+                                                    <span>
+                                                        <span className="block whitespace-nowrap">
+                                                            {staff.name}
+                                                        </span>
+                                                        <span className="text-muted-foreground block text-xs font-normal">
+                                                            {staff.employment_type ===
+                                                            'employee'
+                                                                ? '社員'
+                                                                : 'アルバイト'}
+                                                        </span>
+                                                    </span>
+                                                </div>
                                             </th>
                                             {staff.cells.map((cell, index) => {
                                                 const day = days[index];
@@ -244,7 +387,7 @@ export default function MonthlyShift({
                                                             day?.is_sunday &&
                                                                 'bg-rose-50/50 dark:bg-rose-950/20',
                                                             day?.is_holiday &&
-                                                                'bg-amber-50/70 dark:bg-amber-950/20',
+                                                                'bg-orange-200/90 ring-1 ring-orange-400 ring-inset dark:bg-orange-800/50 dark:ring-orange-500/70',
                                                         )}
                                                     >
                                                         {cell.inconsistency ? (
@@ -263,9 +406,15 @@ export default function MonthlyShift({
                                                                     要確認
                                                                 </span>
                                                             </span>
-                                                        ) : day?.is_holiday ? (
-                                                            <span className="text-muted-foreground text-xs">
-                                                                店休
+                                                        ) : day?.is_holiday &&
+                                                          !cell.editable ? (
+                                                            <span className="text-xs font-bold text-orange-950 dark:text-orange-100">
+                                                                {cell.shift_type ===
+                                                                    'off' ||
+                                                                cell.shift_type ===
+                                                                    'absence'
+                                                                    ? cell.display
+                                                                    : '店休'}
                                                             </span>
                                                         ) : cell.conflict_store ? (
                                                             <Badge
@@ -294,6 +443,10 @@ export default function MonthlyShift({
                                                                     !cell.editable ||
                                                                     savingCell !==
                                                                         null
+                                                                }
+                                                                holidayHelpOnly={
+                                                                    day?.is_holiday ??
+                                                                    false
                                                                 }
                                                                 ariaLabel={`${staff.name} ${cell.date}のシフト`}
                                                                 onChange={(

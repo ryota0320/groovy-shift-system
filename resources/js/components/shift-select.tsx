@@ -11,6 +11,44 @@ const hourlyOptions = Array.from({ length: 24 }, (_, hour) => {
     };
 });
 
+const timeToMinutes = (time: string) => {
+    const [hour = 0, minute = 0] = time.split(':').map(Number);
+
+    return hour * 60 + minute;
+};
+
+export function shiftTimeOptions(openingTime: string, closingTime: string) {
+    const openingMinutes = timeToMinutes(openingTime);
+    let closingMinutes = timeToMinutes(closingTime);
+
+    if (closingMinutes <= openingMinutes) {
+        closingMinutes += 24 * 60;
+    }
+
+    return hourlyOptions
+        .filter((option) => {
+            let optionMinutes = timeToMinutes(option.time);
+
+            if (optionMinutes < openingMinutes) {
+                optionMinutes += 24 * 60;
+            }
+
+            return (
+                optionMinutes >= openingMinutes &&
+                optionMinutes <= closingMinutes
+            );
+        })
+        .sort((left, right) => {
+            const businessMinutes = (time: string) => {
+                const minutes = timeToMinutes(time);
+
+                return minutes < openingMinutes ? minutes + 24 * 60 : minutes;
+            };
+
+            return businessMinutes(left.time) - businessMinutes(right.time);
+        });
+}
+
 const isWorkShift = (type: ShiftType | null) =>
     type === 'time' || type === 'early';
 
@@ -69,6 +107,7 @@ export default function ShiftSelect({
     onChange,
     disabled = false,
     compact = false,
+    holidayHelpOnly = false,
     ariaLabel,
 }: {
     value: ShiftValue;
@@ -78,6 +117,7 @@ export default function ShiftSelect({
     onChange: (value: ShiftValue) => void;
     disabled?: boolean;
     compact?: boolean;
+    holidayHelpOnly?: boolean;
     ariaLabel: string;
 }) {
     const availableStores = selectableShiftStores(stores, availableStoreIds);
@@ -87,6 +127,14 @@ export default function ShiftSelect({
             : availableStoreIds.includes(selectedStoreId)
               ? selectedStoreId
               : (availableStores[0]?.id ?? null);
+    const workStore = availableStores.find(
+        (store) =>
+            Number(store.id) === Number(value.store_id ?? defaultStoreId),
+    );
+    const timeOptions = shiftTimeOptions(
+        workStore?.opening_time ?? '17:00',
+        workStore?.closing_time ?? '10:00',
+    );
 
     const changeKind = (kind: string) => {
         const next = decodeShiftValue(
@@ -112,17 +160,25 @@ export default function ShiftSelect({
                 className={cn(
                     'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 disabled:bg-muted h-9 rounded-md border text-sm outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-70',
                     compact ? 'w-14 px-1 text-center' : 'w-full px-3',
+                    holidayHelpOnly &&
+                        'border-orange-500 bg-orange-100 text-orange-950 dark:border-orange-400 dark:bg-orange-950 dark:text-orange-50',
                 )}
             >
                 <option value="">{compact ? '－' : '未設定'}</option>
-                {hourlyOptions.map((option) => (
+                {timeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                         {compact ? option.compactLabel : option.time}
                     </option>
                 ))}
                 <option value="early">{compact ? '早' : '早番'}</option>
-                <option value="off">{compact ? '休' : '休み'}</option>
-                <option value="absence">{compact ? '急休' : '急な休み'}</option>
+                {!holidayHelpOnly && (
+                    <>
+                        <option value="off">{compact ? '休' : '休み'}</option>
+                        <option value="absence">
+                            {compact ? '急休' : '急な休み'}
+                        </option>
+                    </>
+                )}
             </select>
 
             {isWorkShift(value.shift_type) && (
@@ -130,15 +186,35 @@ export default function ShiftSelect({
                     aria-label={`${ariaLabel}の勤務店舗`}
                     value={value.store_id ?? ''}
                     disabled={disabled || availableStores.length === 0}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                        const storeId = Number(event.target.value);
+                        const nextStore = availableStores.find(
+                            (store) => Number(store.id) === storeId,
+                        );
+                        const nextTimeOptions = shiftTimeOptions(
+                            nextStore?.opening_time ?? '17:00',
+                            nextStore?.closing_time ?? '10:00',
+                        );
+                        const currentStartTime = value.start_time?.slice(0, 5);
+                        const startTimeIsAvailable = nextTimeOptions.some(
+                            (option) => option.time === currentStartTime,
+                        );
+
                         onChange({
                             ...value,
-                            store_id: Number(event.target.value),
-                        })
-                    }
+                            store_id: storeId,
+                            start_time:
+                                value.shift_type === 'time' &&
+                                !startTimeIsAvailable
+                                    ? (nextTimeOptions[0]?.time ?? null)
+                                    : value.start_time,
+                        });
+                    }}
                     className={cn(
                         'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 disabled:bg-muted h-9 rounded-md border text-sm outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-70',
                         compact ? 'w-20 px-1 text-xs' : 'w-full px-2',
+                        holidayHelpOnly &&
+                            'border-orange-500 bg-orange-100 text-orange-950 dark:border-orange-400 dark:bg-orange-950 dark:text-orange-50',
                     )}
                 >
                     {availableStores.map((store) => (

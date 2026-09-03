@@ -18,6 +18,12 @@ type Props = {
     today_label: string;
     today_shift_count: number;
     attendance_missing_count: number;
+    today_assigned_count: number;
+    today_assigned_working_count: number;
+    today_help_count: number;
+    today_off_count: number;
+    today_other_store_count: number;
+    today_unscheduled_count: number;
 };
 
 export default function Dashboard({
@@ -27,6 +33,12 @@ export default function Dashboard({
     today_label: todayLabel,
     today_shift_count: todayShiftCount,
     attendance_missing_count: attendanceMissingCount,
+    today_assigned_count: todayAssignedCount,
+    today_assigned_working_count: todayAssignedWorkingCount,
+    today_help_count: todayHelpCount,
+    today_off_count: todayOffCount,
+    today_other_store_count: todayOtherStoreCount,
+    today_unscheduled_count: todayUnscheduledCount,
 }: Props) {
     const [selectingStore, setSelectingStore] = useState(false);
 
@@ -59,23 +71,35 @@ export default function Dashboard({
                 </header>
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <DashboardCard title="本日のシフト" icon={UsersRound}>
+                    <DashboardCard title="本日の勤務予定" icon={UsersRound}>
                         <p className="mt-2 text-2xl font-semibold tabular-nums">
                             {selectedStore ? `${todayShiftCount}人` : '—'}
                         </p>
                         {selectedStore ? (
-                            <Button
-                                variant="link"
-                                className="mt-2 h-auto p-0"
-                                asChild
-                            >
-                                <Link
-                                    href={`/shifts/daily?store_id=${selectedStore.id}&date=${today}`}
+                            <>
+                                <p className="text-muted-foreground mt-2 text-xs leading-5">
+                                    所属{todayAssignedCount}人：自店勤務
+                                    {todayAssignedWorkingCount}人・休み
+                                    {todayOffCount}人・未設定
+                                    {todayUnscheduledCount}人
+                                    {todayOtherStoreCount > 0 &&
+                                        `・他店勤務${todayOtherStoreCount}人`}
+                                    {todayHelpCount > 0 &&
+                                        `／ヘルプ${todayHelpCount}人を含む`}
+                                </p>
+                                <Button
+                                    variant="link"
+                                    className="mt-2 h-auto p-0"
+                                    asChild
                                 >
-                                    日別シフトを確認
-                                    <ArrowRight />
-                                </Link>
-                            </Button>
+                                    <Link
+                                        href={`/shifts/daily?store_id=${selectedStore.id}&date=${today}`}
+                                    >
+                                        日別シフトを確認
+                                        <ArrowRight />
+                                    </Link>
+                                </Button>
+                            </>
                         ) : (
                             <p className="text-muted-foreground mt-4 text-sm">
                                 利用できる店舗がありません。
@@ -90,18 +114,23 @@ export default function Dashboard({
                                 : '—'}
                         </p>
                         {selectedStore ? (
-                            <Button
-                                variant="link"
-                                className="mt-2 h-auto p-0"
-                                asChild
-                            >
-                                <Link
-                                    href={`/attendance/daily?store_id=${selectedStore.id}&date=${today}`}
+                            <>
+                                <p className="text-muted-foreground mt-2 text-xs">
+                                    本日の勤務予定者のうち、勤怠が未入力の人数です。
+                                </p>
+                                <Button
+                                    variant="link"
+                                    className="mt-2 h-auto p-0"
+                                    asChild
                                 >
-                                    日次勤怠を入力
-                                    <ArrowRight />
-                                </Link>
-                            </Button>
+                                    <Link
+                                        href={`/attendance/daily?store_id=${selectedStore.id}&date=${today}`}
+                                    >
+                                        日次勤怠を入力
+                                        <ArrowRight />
+                                    </Link>
+                                </Button>
+                            </>
                         ) : (
                             <p className="text-muted-foreground mt-4 text-sm">
                                 利用できる店舗がありません。

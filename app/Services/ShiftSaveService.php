@@ -37,7 +37,7 @@ class ShiftSaveService
             }
 
             $this->validateContextStore($contextStore, $staff, $shiftDate, null, 'shift_type');
-            $this->validateWorkShift($workStore, $staff, $shiftDate, $shiftType, 'shift_type');
+            $this->validateWorkShift($workStore, $staff, $shiftDate, $shiftType, $startTime, 'shift_type');
 
             return Shift::query()->create($this->attributes(
                 $workStore,
@@ -162,7 +162,7 @@ class ShiftSaveService
             return null;
         }
 
-        $this->validateWorkShift($workStore, $staff, $shiftDate, $shiftType, $field);
+        $this->validateWorkShift($workStore, $staff, $shiftDate, $shiftType, $startTime, $field);
         $attributes = $this->attributes($workStore, $staff, $shiftDate, $shiftType, $startTime);
 
         if ($existing === null) {
@@ -179,6 +179,7 @@ class ShiftSaveService
         Staff $staff,
         string $shiftDate,
         ShiftType $shiftType,
+        ?string $startTime,
         string $field,
     ): void {
         if (! $staff->isEmployedOn($shiftDate)) {
@@ -214,6 +215,14 @@ class ShiftSaveService
         if ($store->holidays()->whereDate('holiday_date', $shiftDate)->exists()) {
             throw ValidationException::withMessages([
                 $field => '店休日には通常シフトを登録できません。',
+            ]);
+        }
+
+        if ($shiftType === ShiftType::Time
+            && is_string($startTime)
+            && ! $store->allowsShiftStartTime($startTime)) {
+            throw ValidationException::withMessages([
+                $field => '勤務開始時刻は勤務店舗の開店時間から閉店時間までの範囲で選択してください。',
             ]);
         }
     }

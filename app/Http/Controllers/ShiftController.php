@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Enums\ShiftType;
 use App\Http\Requests\ShiftCellRequest;
 use App\Http\Requests\ShiftDailyRequest;
+use App\Http\Requests\ShiftStaffOrderRequest;
 use App\Models\Staff;
+use App\Models\StaffStoreDisplayOrder;
 use App\Models\Store;
 use App\Services\SelectedStoreService;
 use App\Services\ShiftCalendarService;
@@ -13,6 +15,7 @@ use App\Services\ShiftSaveService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -129,16 +132,57 @@ class ShiftController extends Controller
         return $this->success('日別シフトを保存しました。');
     }
 
-    /** @return list<array{id: int, name: string, is_active: bool}> */
+    public function saveMonthlyOrder(ShiftStaffOrderRequest $request): RedirectResponse
+    {
+        $data = $request->validated();
+        $storeId = (int) $data['store_id'];
+        /** @var list<int|string> $staffIds */
+        $staffIds = $data['staff_ids'];
+        $submittedStaffIds = collect($staffIds)->map(fn (int|string $id): int => (int) $id);
+
+        DB::transaction(function () use ($storeId, $submittedStaffIds): void {
+            $existingStaffIds = StaffStoreDisplayOrder::query()
+                ->where('store_id', $storeId)
+                ->orderBy('position')
+                ->orderBy('staff_id')
+                ->lockForUpdate()
+                ->pluck('staff_id');
+            $orderedStaffIds = $submittedStaffIds
+                ->merge($existingStaffIds)
+                ->unique()
+                ->values();
+            $timestamp = now();
+
+            StaffStoreDisplayOrder::query()->upsert(
+                $orderedStaffIds
+                    ->map(fn (int $staffId, int $position): array => [
+                        'store_id' => $storeId,
+                        'staff_id' => $staffId,
+                        'position' => $position,
+                        'created_at' => $timestamp,
+                        'updated_at' => $timestamp,
+                    ])
+                    ->all(),
+                ['store_id', 'staff_id'],
+                ['position', 'updated_at'],
+            );
+        });
+
+        return back();
+    }
+
+    /** @return list<array{id: int, name: string, opening_time: string, closing_time: string, is_active: bool}> */
     private function stores(): array
     {
         return array_values(Store::query()
             ->orderByDesc('is_active')
             ->orderBy('name')
-            ->get(['id', 'name', 'is_active'])
+            ->get(['id', 'name', 'opening_time', 'closing_time', 'is_active'])
             ->map(fn (Store $store): array => [
                 'id' => $store->id,
                 'name' => $store->name,
+                'opening_time' => substr($store->opening_time, 0, 5),
+                'closing_time' => substr($store->closing_time, 0, 5),
                 'is_active' => $store->is_active,
             ])
             ->values()

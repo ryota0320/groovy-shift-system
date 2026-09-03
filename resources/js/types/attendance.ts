@@ -25,7 +25,7 @@ export type DailyAttendanceStaff = {
     name: string;
     employment_type: 'employee' | 'part_time';
     employment_type_label: string;
-    source: 'scheduled' | 'sudden';
+    source: 'scheduled' | 'sudden' | 'unplanned';
     eligible: boolean;
     editable: boolean;
     conflict_store: string | null;

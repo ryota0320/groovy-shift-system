@@ -6,6 +6,7 @@ use App\Enums\EmploymentType;
 use Database\Factories\StaffFactory;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -39,6 +40,12 @@ class Staff extends Model
         return $this->hasMany(StaffStoreAssignment::class);
     }
 
+    /** @return HasMany<StaffStoreDisplayOrder, $this> */
+    public function storeDisplayOrders(): HasMany
+    {
+        return $this->hasMany(StaffStoreDisplayOrder::class);
+    }
+
     /** @return HasMany<StaffWageRate, $this> */
     public function wageRates(): HasMany
     {
@@ -55,6 +62,12 @@ class Staff extends Model
     public function incomeTaxSettings(): HasMany
     {
         return $this->hasMany(StaffIncomeTaxSetting::class);
+    }
+
+    /** @return HasMany<Commission, $this> */
+    public function commissions(): HasMany
+    {
+        return $this->hasMany(Commission::class);
     }
 
     /** @return HasMany<Shift, $this> */
@@ -81,6 +94,34 @@ class Staff extends Model
 
         return ($this->hired_at === null || $this->hired_at->lessThanOrEqualTo($targetDate))
             && ($this->retired_at === null || $this->retired_at->greaterThanOrEqualTo($targetDate));
+    }
+
+    /**
+     * Apply the staff-list order shared by master, shift, attendance and payroll screens.
+     * A store-specific manual order takes precedence when it has been saved.
+     *
+     * @param  Builder<Staff>  $query
+     * @return Builder<Staff>
+     */
+    public function scopeInDisplayOrder(Builder $query, ?int $storeId = null): Builder
+    {
+        if ($storeId !== null) {
+            $query
+                ->select('staffs.*')
+                ->leftJoin('staff_store_display_orders as staff_display_order', function ($join) use ($storeId): void {
+                    $join->on('staff_display_order.staff_id', '=', 'staffs.id')
+                        ->where('staff_display_order.store_id', $storeId);
+                })
+                ->orderByRaw('CASE WHEN staff_display_order.position IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('staff_display_order.position');
+        }
+
+        return $query
+            ->orderByRaw(
+                'CASE staffs.employment_type WHEN ? THEN 0 ELSE 1 END',
+                [EmploymentType::Employee->value],
+            )
+            ->orderBy('staffs.id');
     }
 
     /** @return array<string, string> */

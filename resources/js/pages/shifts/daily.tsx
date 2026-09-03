@@ -78,6 +78,8 @@ export default function DailyShift({
     const remainingAddableStaffs = addableStaffs.filter(
         (staff) => !addedStaffIds.includes(staff.id),
     );
+    const canRegisterHolidayHelp =
+        isHoliday && staffs.some((staff) => staff.editable);
 
     useEffect(() => {
         setValues(initialValues);
@@ -147,7 +149,7 @@ export default function DailyShift({
     };
 
     const save = () => {
-        if (!selectedStore || isHoliday) return;
+        if (!selectedStore) return;
 
         savingRef.current = true;
         setSaving(true);
@@ -269,7 +271,9 @@ export default function DailyShift({
                 {isHoliday && (
                     <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
                         <CalendarOff className="size-5 shrink-0" />
-                        この日は店舗休日です。シフトは登録できません。
+                        {canRegisterHolidayHelp
+                            ? 'この日は店舗休日です。自店勤務は登録できませんが、営業中の他店へのヘルプ勤務は登録できます。'
+                            : 'この日は店舗休日です。営業中のヘルプ先がないため、シフトは登録できません。'}
                     </div>
                 )}
 
@@ -395,9 +399,15 @@ export default function DailyShift({
                                                         {staff.display}
                                                         （要確認）
                                                     </span>
-                                                ) : isHoliday ? (
+                                                ) : isHoliday &&
+                                                  !staff.editable ? (
                                                     <span className="text-muted-foreground">
-                                                        店休
+                                                        {staff.shift_type ===
+                                                            'off' ||
+                                                        staff.shift_type ===
+                                                            'absence'
+                                                            ? staff.display
+                                                            : '店休'}
                                                     </span>
                                                 ) : staff.conflict_store ? (
                                                     <Badge variant="secondary">
@@ -417,6 +427,9 @@ export default function DailyShift({
                                                         disabled={
                                                             !staff.editable
                                                         }
+                                                        holidayHelpOnly={
+                                                            isHoliday
+                                                        }
                                                         ariaLabel={`${staff.name}のシフト`}
                                                         onChange={(next) =>
                                                             updateValue(
@@ -430,6 +443,7 @@ export default function DailyShift({
                                             <td className="px-4 py-3">
                                                 <StaffState
                                                     staff={staff}
+                                                    value={values[staff.id]}
                                                     isHoliday={isHoliday}
                                                 />
                                             </td>
@@ -470,10 +484,7 @@ export default function DailyShift({
                         <Button
                             onClick={save}
                             disabled={
-                                !dirty ||
-                                saving ||
-                                isHoliday ||
-                                !selectedStore?.is_active
+                                !dirty || saving || !selectedStore?.is_active
                             }
                         >
                             <Save />
@@ -512,7 +523,7 @@ function StaffShiftCard({
                         {staff.employment_type_label}
                     </p>
                 </div>
-                <StaffState staff={staff} isHoliday={isHoliday} />
+                <StaffState staff={staff} value={value} isHoliday={isHoliday} />
                 {onRemove && (
                     <Button
                         type="button"
@@ -532,9 +543,12 @@ function StaffShiftCard({
                 >
                     {staff.display}（要確認）— {staff.inconsistency}
                 </div>
-            ) : isHoliday ? (
+            ) : isHoliday && !staff.editable ? (
                 <div className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-sm">
-                    店休
+                    {staff.shift_type === 'off' ||
+                    staff.shift_type === 'absence'
+                        ? staff.display
+                        : '店休'}
                 </div>
             ) : staff.conflict_store ? (
                 <div className="bg-muted rounded-md px-3 py-2 text-sm">
@@ -547,6 +561,7 @@ function StaffShiftCard({
                     selectedStoreId={selectedStoreId}
                     availableStoreIds={staff.available_store_ids}
                     disabled={!staff.editable}
+                    holidayHelpOnly={isHoliday}
                     ariaLabel={`${staff.name}のシフト`}
                     onChange={onChange}
                 />
@@ -575,13 +590,31 @@ function toDailyShiftStaff(staff: AddableShiftStaff): DailyShiftStaff {
 
 function StaffState({
     staff,
+    value,
     isHoliday,
 }: {
     staff: DailyShiftStaff;
+    value: ShiftValue;
     isHoliday: boolean;
 }) {
     if (staff.inconsistency) return <Badge variant="destructive">要確認</Badge>;
-    if (isHoliday) return <Badge variant="secondary">店休</Badge>;
+    if (isHoliday) {
+        if (value.shift_type === 'time' || value.shift_type === 'early') {
+            return <Badge variant="outline">他店ヘルプ</Badge>;
+        }
+        if (value.shift_type === 'off') {
+            return <Badge variant="secondary">休み</Badge>;
+        }
+        if (value.shift_type === 'absence') {
+            return <Badge variant="destructive">急な休み</Badge>;
+        }
+
+        return (
+            <Badge variant="secondary">
+                {staff.editable ? '店休・ヘルプ入力可' : '店休'}
+            </Badge>
+        );
+    }
     if (staff.conflict_store) return <Badge variant="secondary">他店</Badge>;
     if (!staff.eligible) return <Badge variant="outline">対象外</Badge>;
     return <Badge variant="outline">入力可</Badge>;

@@ -12,6 +12,7 @@
 - [テストマトリクス](docs/test-matrix.md)
 - [仕様変更履歴](docs/changelog.md)
 - [設計判断記録](docs/adr/README.md)
+- [所得税額表の年次更新手順](docs/income-tax-annual-update.md)
 
 ## 技術構成
 
@@ -19,7 +20,7 @@
 - Inertia.js 3 / React 19 / TypeScript
 - Tailwind CSS 4 / Vite 8
 - MySQL 8.4
-- Docker Compose（PHP-FPM、Nginx、MySQL、Node/Vite）
+- Docker Compose（PHP-FPM、Nginx、MySQL、Node/Vite、Laravel Scheduler）
 
 ## 必要なもの
 
@@ -64,9 +65,16 @@ docker compose run --rm node npm run types:check
 
 # 本番用フロントエンドビルド
 docker compose run --rm node npm run build
+
+# 翌年分の国税庁・源泉徴収税額表を手動確認（年度省略時は翌年）
+docker compose exec app php artisan income-tax:fetch-next-year 2028
 ```
 
 テストはDocker内のSQLiteインメモリDBを使用し、開発用MySQLのデータには影響しません。
+
+`scheduler`サービスは毎年8月20日から12月31日まで翌年分の国税庁月額表を自動確認します。取得資料を給与計算へ反映する作業は開発管理者だけが[年次更新手順](docs/income-tax-annual-update.md)に従って行います。
+
+初期開発管理者でログインすると、サイドメニューの「所得税額表状況」で現在の適用年度と最新取得状態を確認できます。このメニューとURLは、設定された初期開発管理者のメールアドレスに限定されます。
 
 ポートが重複する場合は `.env` の `APP_PORT`、`VITE_PORT`、`FORWARD_DB_PORT` を変更してください。
 

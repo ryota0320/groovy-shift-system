@@ -20,7 +20,20 @@ class StoreRequest extends FormRequest
                 'max:255',
                 Rule::unique(Store::class)->ignore($store instanceof Store ? $store->id : null),
             ],
+            'opening_time' => ['required', 'date_format:H:i'],
+            'closing_time' => ['required', 'date_format:H:i'],
             'is_active' => ['required', 'boolean'],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'opening_time.required' => '開店時間を入力してください。',
+            'opening_time.date_format' => '開店時間は時刻の形式で入力してください。',
+            'closing_time.required' => '閉店時間を入力してください。',
+            'closing_time.date_format' => '閉店時間は時刻の形式で入力してください。',
         ];
     }
 }

@@ -43,7 +43,7 @@ class AttendanceController extends Controller
             'stores' => Store::query()
                 ->orderByDesc('is_active')
                 ->orderBy('name')
-                ->get(['id', 'name', 'is_active']),
+                ->get(['id', 'name', 'opening_time', 'closing_time', 'is_active']),
             'selected_store' => $store,
             'date' => $date->toDateString(),
             'previous_date' => $date->copy()->subDay()->toDateString(),

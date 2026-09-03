@@ -8,7 +8,7 @@ if [ ! -f .env ]; then
     cp .env.example .env
 fi
 
-docker compose build app node
+docker compose build app scheduler node
 docker compose run --rm app composer install --no-interaction
 docker compose run --rm node npm ci
 if ! grep -Eq '^APP_KEY=.+$' .env; then
@@ -16,6 +16,6 @@ if ! grep -Eq '^APP_KEY=.+$' .env; then
 fi
 docker compose up -d db
 docker compose run --rm app php artisan migrate --seed --force
-docker compose up -d --force-recreate app node web
+docker compose up -d --force-recreate app scheduler node web
 
 echo "Groovy Shift System is available at http://localhost:${APP_PORT:-8082}"

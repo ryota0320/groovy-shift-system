@@ -21,7 +21,7 @@ class AttendanceSummaryService
             ])
             ->when($store !== null, fn ($query) => $query->where('attendance_records.store_id', $store->id))
             ->groupBy('attendance_records.staff_id', 'staffs.name')
-            ->orderBy('staffs.name')
+            ->orderBy('attendance_records.staff_id')
             ->get([
                 'attendance_records.staff_id',
                 'staffs.name',

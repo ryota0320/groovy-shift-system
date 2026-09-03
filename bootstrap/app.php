@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureDevelopmentAdmin;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->alias([
+            'development-admin' => EnsureDevelopmentAdmin::class,
             'role' => EnsureUserHasRole::class,
         ]);
 

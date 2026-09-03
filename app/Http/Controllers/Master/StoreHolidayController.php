@@ -22,12 +22,17 @@ class StoreHolidayController extends Controller
         DB::transaction(function () use ($store, $data): void {
             Store::query()->lockForUpdate()->findOrFail($store->id);
             $this->shiftGuard->ensureHolidayHasNoWorkShifts($store, $data['holiday_date']);
-            $store->holidays()->create($data);
+            $store->holidays()->create([
+                'holiday_date' => $data['holiday_date'],
+            ]);
         });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => '店休日を登録しました。']);
 
-        return back();
+        return to_route('stores.edit', [
+            'store' => $store,
+            'holiday_month' => $data['holiday_month'] ?? substr($data['holiday_date'], 0, 7),
+        ]);
     }
 
     public function destroy(Store $store, StoreHoliday $holiday): RedirectResponse

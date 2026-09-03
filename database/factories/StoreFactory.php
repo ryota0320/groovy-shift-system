@@ -12,6 +12,8 @@ class StoreFactory extends Factory
     {
         return [
             'name' => fake()->unique()->company().'店',
+            'opening_time' => '17:00',
+            'closing_time' => '10:00',
             'is_active' => true,
         ];
     }

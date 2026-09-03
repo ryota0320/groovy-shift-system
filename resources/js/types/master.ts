@@ -6,6 +6,8 @@ export type SelectOption = {
 export type StoreOption = {
     id: number;
     name: string;
+    opening_time: string;
+    closing_time: string;
     is_active: boolean;
 };
 

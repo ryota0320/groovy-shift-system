@@ -95,10 +95,20 @@ class DashboardTest extends TestCase
     public function test_attendance_missing_count_excludes_staff_with_today_attendance(): void
     {
         $user = User::factory()->create();
-        $store = Store::factory()->create();
+        $store = Store::factory()->create(['name' => 'A店舗']);
+        $otherStore = Store::factory()->create(['name' => 'Z店舗']);
         $missingStaff = Staff::factory()->create();
         $attendedStaff = Staff::factory()->create();
+        $offStaff = Staff::factory()->create();
+        $otherStoreStaff = Staff::factory()->create();
+        $unscheduledStaff = Staff::factory()->create();
 
+        foreach ([$missingStaff, $attendedStaff, $offStaff, $otherStoreStaff, $unscheduledStaff] as $staff) {
+            $staff->storeAssignments()->create([
+                'store_id' => $store->id,
+                'effective_from' => today()->subMonth()->toDateString(),
+            ]);
+        }
         foreach ([$missingStaff, $attendedStaff] as $staff) {
             Shift::query()->create([
                 'staff_id' => $staff->id,
@@ -108,6 +118,18 @@ class DashboardTest extends TestCase
                 'start_time' => '19:00',
             ]);
         }
+        Shift::query()->create([
+            'staff_id' => $offStaff->id,
+            'store_id' => null,
+            'shift_date' => today()->toDateString(),
+            'shift_type' => 'off',
+        ]);
+        Shift::query()->create([
+            'staff_id' => $otherStoreStaff->id,
+            'store_id' => $otherStore->id,
+            'shift_date' => today()->toDateString(),
+            'shift_type' => 'early',
+        ]);
         AttendanceRecord::factory()->create([
             'staff_id' => $attendedStaff->id,
             'store_id' => $store->id,
@@ -118,7 +140,13 @@ class DashboardTest extends TestCase
             ->get(route('dashboard'))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('today_shift_count', 2)
-                ->where('attendance_missing_count', 1));
+                ->where('attendance_missing_count', 1)
+                ->where('today_assigned_count', 5)
+                ->where('today_assigned_working_count', 2)
+                ->where('today_help_count', 0)
+                ->where('today_off_count', 1)
+                ->where('today_other_store_count', 1)
+                ->where('today_unscheduled_count', 1));
     }
 
     public function test_inactive_store_cannot_be_selected_as_current_store(): void

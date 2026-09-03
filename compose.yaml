@@ -15,6 +15,21 @@ services:
         networks:
             - groovy
 
+    scheduler:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: app
+        working_dir: /var/www/html
+        command: php artisan schedule:work
+        volumes:
+            - .:/var/www/html
+        depends_on:
+            db:
+                condition: service_healthy
+        networks:
+            - groovy
+
     web:
         image: nginx:1.29-alpine
         ports:

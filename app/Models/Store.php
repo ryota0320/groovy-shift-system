@@ -11,14 +11,33 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property int $id
  * @property string $name
+ * @property string $opening_time
+ * @property string $closing_time
  * @property bool $is_active
  * @property int $holidays_count
  */
-#[Fillable(['name', 'is_active'])]
+#[Fillable(['name', 'opening_time', 'closing_time', 'is_active'])]
 class Store extends Model
 {
     /** @use HasFactory<StoreFactory> */
     use HasFactory;
+
+    public function allowsShiftStartTime(string $startTime): bool
+    {
+        $openingMinutes = $this->timeToMinutes($this->opening_time);
+        $startMinutes = $this->timeToMinutes($startTime);
+        $closingMinutes = $this->timeToMinutes($this->closing_time);
+
+        if ($closingMinutes <= $openingMinutes) {
+            $closingMinutes += 24 * 60;
+        }
+
+        if ($startMinutes < $openingMinutes) {
+            $startMinutes += 24 * 60;
+        }
+
+        return $startMinutes >= $openingMinutes && $startMinutes <= $closingMinutes;
+    }
 
     /** @return HasMany<StoreHoliday, $this> */
     public function holidays(): HasMany
@@ -30,6 +49,12 @@ class Store extends Model
     public function assignments(): HasMany
     {
         return $this->hasMany(StaffStoreAssignment::class);
+    }
+
+    /** @return HasMany<StaffStoreDisplayOrder, $this> */
+    public function staffDisplayOrders(): HasMany
+    {
+        return $this->hasMany(StaffStoreDisplayOrder::class);
     }
 
     /** @return HasMany<StaffStoreTransportationFee, $this> */
@@ -54,5 +79,12 @@ class Store extends Model
     protected function casts(): array
     {
         return ['is_active' => 'boolean'];
+    }
+
+    private function timeToMinutes(string $time): int
+    {
+        [$hour, $minute] = array_map('intval', explode(':', $time));
+
+        return ($hour * 60) + $minute;
     }
 }

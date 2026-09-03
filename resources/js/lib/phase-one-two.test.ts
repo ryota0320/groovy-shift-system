@@ -3,6 +3,7 @@ import {
     decodeShiftValue,
     encodeShiftValue,
     selectableShiftStores,
+    shiftTimeOptions,
 } from '@/components/shift-select';
 import {
     selectableHistoryStores,
@@ -15,8 +16,20 @@ import {
 import type { StoreOption } from '@/types';
 
 const stores: StoreOption[] = [
-    { id: 1, name: '有効店舗', is_active: true },
-    { id: 2, name: '無効店舗', is_active: false },
+    {
+        id: 1,
+        name: '有効店舗',
+        opening_time: '17:00',
+        closing_time: '10:00',
+        is_active: true,
+    },
+    {
+        id: 2,
+        name: '無効店舗',
+        opening_time: '17:00',
+        closing_time: '10:00',
+        is_active: false,
+    },
 ];
 
 describe('Phase 1 master options', () => {
@@ -79,7 +92,13 @@ describe('Phase 2 daily shift state', () => {
     });
 
     it('SFT-018: includes newly supplied active stores automatically', () => {
-        const addedStore = { id: 3, name: '新店舗', is_active: true };
+        const addedStore = {
+            id: 3,
+            name: '新店舗',
+            opening_time: '17:00',
+            closing_time: '10:00',
+            is_active: true,
+        };
 
         expect(selectableShiftStores([...stores, addedStore], [1, 3])).toEqual([
             stores[0],
@@ -96,5 +115,21 @@ describe('Phase 2 daily shift state', () => {
 
         expect(decodeShiftValue(encodeShiftValue(absence))).toEqual(absence);
         expect(encodeShiftValue(absence)).not.toBe('off');
+    });
+
+    it('SFT-026: limits and orders start times from the work store opening time', () => {
+        const options = shiftTimeOptions('17:30:00', '02:30:00');
+
+        expect(options.map((option) => option.time)).toEqual([
+            '18:00',
+            '19:00',
+            '20:00',
+            '21:00',
+            '22:00',
+            '23:00',
+            '00:00',
+            '01:00',
+            '02:00',
+        ]);
     });
 });

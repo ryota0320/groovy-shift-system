@@ -19,14 +19,161 @@ use App\Services\StaffInitialImportService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Inertia\Testing\AssertableInertia as Assert;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
-/** Covers MST-001 through MST-018 and IMP-001 through IMP-006. */
+/** Covers MST-001 through MST-021 and IMP-001 through IMP-009. */
 class MasterDataTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_store_business_hours_are_required_and_can_be_updated(): void
+    {
+        $admin = User::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('stores.store'), [
+                'name' => '開店時間未入力店',
+                'is_active' => true,
+            ])
+            ->assertSessionHasErrors(['opening_time', 'closing_time']);
+
+        $store = Store::factory()->create([
+            'opening_time' => '18:30',
+            'closing_time' => '02:30',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('stores.edit', $store))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('store.opening_time', '18:30')
+                ->where('store.closing_time', '02:30'));
+
+        $this->actingAs($admin)
+            ->put(route('stores.update', $store), [
+                'name' => $store->name,
+                'opening_time' => '19:15',
+                'closing_time' => '03:15',
+                'is_active' => true,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('19:15', substr($store->fresh()->opening_time, 0, 5));
+        $this->assertSame('03:15', substr($store->fresh()->closing_time, 0, 5));
+    }
+
+    public function test_store_holidays_are_displayed_in_date_ascending_order(): void
+    {
+        $admin = User::factory()->create();
+        $store = Store::factory()->create();
+
+        foreach (['2026-09-30', '2026-09-28', '2026-09-29'] as $holidayDate) {
+            StoreHoliday::query()->create([
+                'store_id' => $store->id,
+                'holiday_date' => $holidayDate,
+            ]);
+        }
+        StoreHoliday::query()->create([
+            'store_id' => $store->id,
+            'holiday_date' => '2026-10-01',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('stores.edit', [
+                'store' => $store,
+                'holiday_month' => '2026-09',
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('holiday_month', '2026-09')
+                ->where('holiday_month_label', '2026年9月')
+                ->where('previous_holiday_month', '2026-08')
+                ->where('next_holiday_month', '2026-10')
+                ->has('store.holidays', 3)
+                ->where('store.holidays.0.holiday_date', '2026-09-28')
+                ->where('store.holidays.1.holiday_date', '2026-09-29')
+                ->where('store.holidays.2.holiday_date', '2026-09-30'));
+
+        $this->actingAs($admin)
+            ->get(route('stores.edit', [
+                'store' => $store,
+                'holiday_month' => '2026-10',
+            ]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('holiday_month', '2026-10')
+                ->has('store.holidays', 1)
+                ->where('store.holidays.0.holiday_date', '2026-10-01'));
+    }
+
+    public function test_store_holiday_date_must_match_the_selected_month(): void
+    {
+        $admin = User::factory()->create();
+        $store = Store::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('stores.holidays.store', $store), [
+                'holiday_month' => '2026-09',
+                'holiday_date' => '2026-10-01',
+            ])
+            ->assertSessionHasErrors('holiday_date');
+
+        $this->assertDatabaseCount('store_holidays', 0);
+    }
+
+    public function test_staff_index_orders_employees_then_part_time_staff_by_id(): void
+    {
+        $admin = User::factory()->create();
+        $firstPartTime = Staff::factory()->partTime()->create(['name' => '先に登録したアルバイト']);
+        $firstEmployee = Staff::factory()->employee()->create(['name' => '後に登録した社員']);
+        $secondPartTime = Staff::factory()->partTime()->create(['name' => '後に登録したアルバイト']);
+        $secondEmployee = Staff::factory()->employee()->create(['name' => '先に表示する社員']);
+
+        $this->actingAs($admin)
+            ->get(route('staffs.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('staffs/index')
+                ->has('staffs.data', 4)
+                ->missing('filters.date')
+                ->where('staffs.data.0.id', $firstEmployee->id)
+                ->where('staffs.data.1.id', $secondEmployee->id)
+                ->where('staffs.data.2.id', $firstPartTime->id)
+                ->where('staffs.data.3.id', $secondPartTime->id));
+    }
+
+    public function test_staff_index_is_paginated_in_groups_of_twenty_five(): void
+    {
+        $admin = User::factory()->create();
+        Staff::factory()->partTime()->create([
+            'hired_at' => '2020-01-01',
+            'retired_at' => today()->subDay(),
+        ]);
+        $staffs = Staff::factory()->partTime()->count(26)->create([
+            'hired_at' => null,
+            'retired_at' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('staffs.index', ['status' => 'employed']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('staffs.data', 25)
+                ->where('staffs.current_page', 1)
+                ->where('staffs.last_page', 2)
+                ->where('staffs.per_page', 25)
+                ->where('staffs.total', 26));
+
+        $this->actingAs($admin)
+            ->get(route('staffs.index', ['status' => 'employed', 'page' => 2]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('staffs.data', 1)
+                ->where('staffs.current_page', 2)
+                ->where('staffs.data.0.id', $staffs->last()->id));
+    }
 
     public function test_staff_creation_requires_and_creates_an_initial_store_assignment_atomically(): void
     {
@@ -71,10 +218,13 @@ class MasterDataTest extends TestCase
         $this->actingAs($admin)
             ->post(route('stores.store'), [
                 'name' => '新店舗',
+                'opening_time' => '18:30',
+                'closing_time' => '02:30',
                 'is_active' => true,
             ])
             ->assertRedirect();
         $store = Store::query()->where('name', '新店舗')->firstOrFail();
+        $this->assertSame('18:30', substr($store->opening_time, 0, 5));
 
         $this->actingAs($admin)
             ->post(route('stores.holidays.store', $store), [
@@ -205,6 +355,8 @@ class MasterDataTest extends TestCase
         $this->actingAs($admin)
             ->put(route('stores.update', $store), [
                 'name' => $store->name,
+                'opening_time' => '17:00',
+                'closing_time' => '10:00',
                 'is_active' => false,
             ])
             ->assertRedirect();
@@ -537,6 +689,81 @@ class MasterDataTest extends TestCase
         ]);
     }
 
+    public function test_staff_initial_import_auto_numbers_blank_keys_defaults_dependents_and_accepts_date_separators(): void
+    {
+        $admin = User::factory()->create();
+        $store = Store::factory()->create(['name' => '46']);
+        $headers = implode(',', array_values(array_filter(
+            StaffInitialImportService::HEADERS,
+            fn (string $key): bool => $key !== 'staff_key',
+            ARRAY_FILTER_USE_KEY,
+        )));
+        $partTime = implode(',', [
+            '山田 花子', 'アルバイト', '2026/4/1', '', '46', '2026-04-01', '',
+            '1300', '2026/4/1', '', '', '', '', '', '甲欄', '', '2026-04-01', '',
+        ]);
+        $employee = implode(',', [
+            '佐藤 太郎', '社員', '2026-4-2', '', '46', '2026/4/2', '',
+        ]);
+        $file = UploadedFile::fake()->createWithContent(
+            'staffs.csv',
+            "{$headers}\n{$partTime}\n{$employee}\n",
+        );
+
+        $this->actingAs($admin)
+            ->post(route('staffs.import.store'), ['file' => $file])
+            ->assertRedirect(route('staffs.index'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('staffs', 2);
+        $partTimeStaff = Staff::query()->where('name', '山田 花子')->firstOrFail();
+        $this->assertDatabaseHas('staff_income_tax_settings', [
+            'staff_id' => $partTimeStaff->id,
+            'tax_category' => 'ko',
+            'dependent_count' => 0,
+            'effective_from' => '2026-04-01 00:00:00',
+        ]);
+        $this->assertDatabaseHas('staffs', [
+            'name' => '佐藤 太郎',
+            'hired_at' => '2026-04-02 00:00:00',
+        ]);
+        $this->assertDatabaseHas('staff_store_assignments', [
+            'staff_id' => $partTimeStaff->id,
+            'store_id' => $store->id,
+            'effective_from' => '2026-04-01 00:00:00',
+        ]);
+    }
+
+    public function test_staff_initial_import_groups_rows_only_when_the_same_key_is_entered(): void
+    {
+        $admin = User::factory()->create();
+        $firstStore = Store::factory()->create(['name' => '46']);
+        $secondStore = Store::factory()->create(['name' => '47']);
+        $headers = implode(',', array_values(StaffInitialImportService::HEADERS));
+        $first = implode(',', ['PT001', '山田 花子', 'アルバイト', '', '', '46', '2026-04-01']);
+        $second = implode(',', ['PT001', '山田 花子', 'アルバイト', '', '', '47', '2026-04-01']);
+        $file = UploadedFile::fake()->createWithContent(
+            'staffs.csv',
+            "{$headers}\n{$first}\n{$second}\n",
+        );
+
+        $this->actingAs($admin)
+            ->post(route('staffs.import.store'), ['file' => $file])
+            ->assertRedirect(route('staffs.index'))
+            ->assertSessionHasNoErrors();
+
+        $staff = Staff::query()->where('name', '山田 花子')->firstOrFail();
+        $this->assertDatabaseCount('staffs', 1);
+        $this->assertDatabaseHas('staff_store_assignments', [
+            'staff_id' => $staff->id,
+            'store_id' => $firstStore->id,
+        ]);
+        $this->assertDatabaseHas('staff_store_assignments', [
+            'staff_id' => $staff->id,
+            'store_id' => $secondStore->id,
+        ]);
+    }
+
     public function test_staff_initial_import_is_all_or_nothing_when_a_row_is_invalid(): void
     {
         $admin = User::factory()->create();
@@ -597,8 +824,10 @@ class MasterDataTest extends TestCase
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getActiveSheet()->fromArray([
             array_values(StaffInitialImportService::HEADERS),
-            ['EMP001', '佐藤 太郎', '社員', '2026-04-01'],
+            ['EMP001', '佐藤 太郎', '社員'],
         ]);
+        $spreadsheet->getActiveSheet()->setCellValue('D2', ExcelDate::PHPToExcel(new \DateTimeImmutable('2026-04-01')));
+        $spreadsheet->getActiveSheet()->getStyle('D2')->getNumberFormat()->setFormatCode('m/d/yyyy');
         $path = tempnam(sys_get_temp_dir(), 'staff-import-').'.xlsx';
         (new Xlsx($spreadsheet))->save($path);
         $spreadsheet->disconnectWorksheets();

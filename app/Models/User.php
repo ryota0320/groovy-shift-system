@@ -46,6 +46,16 @@ class User extends Authenticatable implements PasskeyUser
         return $this->belongsTo(Staff::class);
     }
 
+    public function isDevelopmentAdmin(): bool
+    {
+        $adminEmail = config('initial-admin.email');
+
+        return $this->role === UserRole::Admin
+            && is_string($adminEmail)
+            && $adminEmail !== ''
+            && strcasecmp($this->email, $adminEmail) === 0;
+    }
+
     /**
      * Get the attributes that should be cast.
      *

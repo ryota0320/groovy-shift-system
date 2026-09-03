@@ -112,7 +112,9 @@ class StaffInitialImportService
 
             $reader->setReadDataOnly(true);
             $spreadsheet = $reader->load($path);
-            $rows = $spreadsheet->getSheet(0)->toArray(null, true, true, false);
+            // Keep raw Excel values so date cells are handled as serial numbers,
+            // regardless of whether their display format uses slashes or dashes.
+            $rows = $spreadsheet->getSheet(0)->toArray(null, true, false, false);
             $spreadsheet->disconnectWorksheets();
         } catch (Throwable) {
             throw ValidationException::withMessages([
@@ -134,7 +136,7 @@ class StaffInitialImportService
         }
 
         $headerIndexes = $this->headerIndexes($rows[0]);
-        $requiredHeaders = ['staff_key', 'name', 'employment_type'];
+        $requiredHeaders = ['name', 'employment_type'];
 
         foreach ($requiredHeaders as $requiredHeader) {
             if (! array_key_exists($requiredHeader, $headerIndexes)) {
@@ -169,13 +171,15 @@ class StaffInitialImportService
             $value = fn (string $key): mixed => isset($headerIndexes[$key])
                 ? ($row[$headerIndexes[$key]] ?? null)
                 : null;
-            $staffKey = $this->string($value('staff_key'));
+            $providedStaffKey = $this->string($value('staff_key'));
+            // Namespace internal keys so an explicitly entered value can never
+            // collide with a row-based automatically assigned key.
+            $staffKey = $providedStaffKey === ''
+                ? "auto:{$rowNumber}"
+                : "provided:{$providedStaffKey}";
             $name = $this->string($value('name'));
             $employmentType = $this->employmentType($value('employment_type'), $rowNumber);
 
-            if ($staffKey === '') {
-                $this->fail($rowNumber, 'スタッフキーは必須です。');
-            }
             if ($name === '') {
                 $this->fail($rowNumber, '氏名は必須です。');
             }
@@ -194,7 +198,7 @@ class StaffInitialImportService
             } else {
                 $profile = &$staffs[$staffKey]->staff;
                 if ($profile['name'] !== $name || $profile['employment_type'] !== $employmentType) {
-                    $this->fail($rowNumber, "スタッフキー「{$staffKey}」の氏名または雇用区分が他の行と一致しません。");
+                    $this->fail($rowNumber, "スタッフキー「{$providedStaffKey}」の氏名または雇用区分が他の行と一致しません。");
                 }
                 $this->mergeProfileDate($profile, 'hired_at', $hiredAt, $rowNumber, '入社日');
                 $this->mergeProfileDate($profile, 'retired_at', $retiredAt, $rowNumber, '退職日');
@@ -266,11 +270,12 @@ class StaffInitialImportService
             $taxFrom = $this->date($value('tax_from'), $rowNumber, '税設定開始日');
             $taxTo = $this->date($value('tax_to'), $rowNumber, '税設定終了日');
             if ($taxCategoryRaw !== '' || $dependentCount !== null || $taxFrom !== null || $taxTo !== null) {
+                $dependentCount ??= 0;
                 if ($employmentType !== EmploymentType::PartTime->value) {
                     $this->fail($rowNumber, '社員には所得税設定履歴を登録できません。');
                 }
-                if ($taxCategoryRaw === '' || $dependentCount === null || $taxFrom === null) {
-                    $this->fail($rowNumber, '所得税設定を登録する行は所得税区分・扶養人数・開始日が必須です。');
+                if ($taxCategoryRaw === '' || $taxFrom === null) {
+                    $this->fail($rowNumber, '所得税設定を登録する行は所得税区分と開始日が必須です。');
                 }
                 $this->ensurePeriod($taxFrom, $taxTo, $rowNumber, '所得税設定期間');
                 $staffs[$staffKey]->incomeTaxSettings[] = [
@@ -384,18 +389,13 @@ class StaffInitialImportService
             }
         }
 
-        foreach (['!Y-m-d', '!Y/m/d', '!Y/n/j'] as $format) {
-            try {
-                $date = Carbon::createFromFormat($format, mb_convert_kana($string, 'n'));
-                if ($date->format(ltrim($format, '!')) === mb_convert_kana($string, 'n')) {
-                    return $date->toDateString();
-                }
-            } catch (Throwable) {
-                continue;
-            }
+        $normalized = mb_convert_kana($string, 'n');
+        if (preg_match('/^(\d{4})([-\/])(\d{1,2})\2(\d{1,2})$/', $normalized, $matches)
+            && checkdate((int) $matches[3], (int) $matches[4], (int) $matches[1])) {
+            return sprintf('%04d-%02d-%02d', $matches[1], $matches[3], $matches[4]);
         }
 
-        $this->fail($row, "{$label}はYYYY-MM-DD形式で入力してください。");
+        $this->fail($row, "{$label}はYYYY-MM-DDまたはYYYY/MM/DD形式で入力してください。");
     }
 
     private function ensurePeriod(?string $from, ?string $to, int $row, string $label): void

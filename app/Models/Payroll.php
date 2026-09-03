@@ -12,6 +12,21 @@ use Illuminate\Support\Carbon;
  * @property int $staff_id
  * @property int $year
  * @property int $month
+ * @property Carbon $payment_date
+ * @property int $tax_year
+ * @property int $working_minutes
+ * @property int $late_night_minutes
+ * @property int $base_pay
+ * @property int $late_night_pay
+ * @property int $transportation_fee_total
+ * @property int $transportation_fee_taxable
+ * @property int $transportation_fee_non_taxable
+ * @property int $commission
+ * @property int $gross_pay
+ * @property int $taxable_pay
+ * @property int $income_tax
+ * @property int $total_deductions
+ * @property int $net_pay
  * @property bool $needs_recalculation
  * @property Carbon|null $calculated_at
  */

@@ -1,11 +1,13 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     Building2,
     CalendarDays,
     Clock3,
     LayoutGrid,
     MoonStar,
+    ReceiptText,
     UsersRound,
+    WalletCards,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
@@ -49,6 +51,11 @@ const mainNavItems: NavItem[] = [
         icon: Clock3,
     },
     {
+        title: '給与',
+        href: '/payrolls',
+        icon: WalletCards,
+    },
+    {
         title: '深夜加算設定',
         href: '/settings/late-night-rates',
         icon: MoonStar,
@@ -56,6 +63,18 @@ const mainNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
+    const { auth } = usePage().props;
+    const visibleNavItems = auth.can_view_income_tax_status
+        ? [
+              ...mainNavItems,
+              {
+                  title: '所得税額表状況',
+                  href: '/settings/income-tax-status',
+                  icon: ReceiptText,
+              },
+          ]
+        : mainNavItems;
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -71,7 +90,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={visibleNavItems} />
             </SidebarContent>
 
             <SidebarFooter>

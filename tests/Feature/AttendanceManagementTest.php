@@ -80,7 +80,7 @@ class AttendanceManagementTest extends TestCase
         $this->assertDatabaseCount('attendance_records', 1);
     }
 
-    public function test_staff_without_shift_can_be_added_as_a_sudden_attendance(): void
+    public function test_assigned_staff_without_shift_is_shown_and_can_enter_attendance(): void
     {
         [$admin, $store, $staff] = $this->context();
 
@@ -88,8 +88,11 @@ class AttendanceManagementTest extends TestCase
             ->get(route('attendance.daily', ['store_id' => $store->id, 'date' => '2026-09-04']))
             ->assertInertia(fn (Assert $page) => $page
                 ->component('attendance/daily')
-                ->where('staffs', [])
-                ->where('addable_staffs.0.id', $staff->id));
+                ->where('staffs.0.staff_id', $staff->id)
+                ->where('staffs.0.source', 'unplanned')
+                ->where('staffs.0.shift.display', 'シフト未設定')
+                ->where('staffs.0.editable', true)
+                ->where('addable_staffs', []));
 
         $this->actingAs($admin)
             ->put(route('attendance.daily.save'), $this->payload($store, $staff, 1140, 1380))
@@ -100,6 +103,20 @@ class AttendanceManagementTest extends TestCase
             'store_id' => $store->id,
             'work_date' => '2026-09-04 00:00:00',
         ]);
+    }
+
+    public function test_daily_attendance_uses_employee_then_part_time_id_order(): void
+    {
+        [$admin, $store, $partTime] = $this->context();
+        $employee = $this->staffForStore($store, EmploymentType::Employee);
+
+        $this->actingAs($admin)
+            ->get(route('attendance.daily', ['store_id' => $store->id, 'date' => '2026-09-04']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('staffs.0.staff_id', $employee->id)
+                ->where('staffs.1.staff_id', $partTime->id)
+                ->where('staffs.0.source', 'unplanned')
+                ->where('staffs.1.source', 'unplanned'));
     }
 
     public function test_scheduled_help_staff_can_record_attendance_without_help_store_assignment(): void
