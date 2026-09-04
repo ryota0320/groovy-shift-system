@@ -39,6 +39,8 @@ docker compose exec app php artisan optimize:clear
 
 ## 4. アプリケーション更新
 
+Xserverステージング環境への配置は[Xserverステージング環境](xserver-staging-deployment.md)に従う。
+
 1. DBバックアップを取得する。
 2. 更新対象のコミットを取得する。
 3. 次をDocker上で実行する。
