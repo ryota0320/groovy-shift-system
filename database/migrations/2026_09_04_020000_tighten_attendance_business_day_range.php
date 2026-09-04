@@ -23,7 +23,7 @@ return new class extends Migration
             );
         }
 
-        DB::statement(sprintf('ALTER TABLE attendance_records DROP CHECK %s', self::CONSTRAINT));
+        DB::statement(sprintf('ALTER TABLE attendance_records DROP CONSTRAINT %s', self::CONSTRAINT));
         DB::statement(sprintf(
             'ALTER TABLE attendance_records ADD CONSTRAINT %s CHECK ('.
             "clock_in_at >= TIMESTAMP(work_date, '17:00:00') AND ".
@@ -39,7 +39,7 @@ return new class extends Migration
             return;
         }
 
-        DB::statement(sprintf('ALTER TABLE attendance_records DROP CHECK %s', self::CONSTRAINT));
+        DB::statement(sprintf('ALTER TABLE attendance_records DROP CONSTRAINT %s', self::CONSTRAINT));
         DB::statement(sprintf(
             'ALTER TABLE attendance_records ADD CONSTRAINT %s CHECK ('.
             "clock_in_at >= TIMESTAMP(work_date, '00:00:00') AND ".

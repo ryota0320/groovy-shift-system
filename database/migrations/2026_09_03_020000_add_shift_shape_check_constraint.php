@@ -29,6 +29,6 @@ return new class extends Migration
             return;
         }
 
-        DB::statement(sprintf('ALTER TABLE shifts DROP CHECK %s', self::CONSTRAINT));
+        DB::statement(sprintf('ALTER TABLE shifts DROP CONSTRAINT %s', self::CONSTRAINT));
     }
 };

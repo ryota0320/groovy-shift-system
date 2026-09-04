@@ -13,7 +13,7 @@ return new class extends Migration
             return;
         }
 
-        DB::statement(sprintf('ALTER TABLE shifts DROP CHECK %s', self::CONSTRAINT));
+        DB::statement(sprintf('ALTER TABLE shifts DROP CONSTRAINT %s', self::CONSTRAINT));
         DB::statement(sprintf(
             'ALTER TABLE shifts ADD CONSTRAINT %s CHECK ('.
             "(shift_type IN ('off', 'absence') AND store_id IS NULL AND start_time IS NULL) OR ".
@@ -31,7 +31,7 @@ return new class extends Migration
         }
 
         DB::table('shifts')->where('shift_type', 'help')->update(['shift_type' => 'early']);
-        DB::statement(sprintf('ALTER TABLE shifts DROP CHECK %s', self::CONSTRAINT));
+        DB::statement(sprintf('ALTER TABLE shifts DROP CONSTRAINT %s', self::CONSTRAINT));
         DB::statement(sprintf(
             'ALTER TABLE shifts ADD CONSTRAINT %s CHECK ('.
             "(shift_type IN ('off', 'absence') AND store_id IS NULL AND start_time IS NULL) OR ".

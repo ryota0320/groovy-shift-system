@@ -43,7 +43,7 @@ return new class extends Migration
         }
 
         foreach (self::CONSTRAINTS as $constraint) {
-            DB::statement("ALTER TABLE attendance_records DROP CHECK {$constraint}");
+            DB::statement("ALTER TABLE attendance_records DROP CONSTRAINT {$constraint}");
         }
     }
 };
