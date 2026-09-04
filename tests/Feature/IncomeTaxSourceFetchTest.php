@@ -12,6 +12,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
+/** Covers TAX-016 through TAX-019. */
 class IncomeTaxSourceFetchTest extends TestCase
 {
     use RefreshDatabase;

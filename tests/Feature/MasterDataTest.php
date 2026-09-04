@@ -19,13 +19,15 @@ use App\Services\StaffInitialImportService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
-/** Covers MST-001 through MST-021 and IMP-001 through IMP-009. */
+/** Covers MST-001, MST-002, MST-007 through MST-011, MST-014 through MST-025 and IMP-001 through IMP-009. */
 class MasterDataTest extends TestCase
 {
     use RefreshDatabase;
@@ -194,6 +196,43 @@ class MasterDataTest extends TestCase
                 ->has('staffs.data', 1)
                 ->where('staffs.data.0.name', '山田 花子')
                 ->where('staffs.data.0.display_name', 'はなちゃん'));
+    }
+
+    public function test_existing_staff_names_are_split_when_the_name_columns_are_migrated(): void
+    {
+        $staffIds = [
+            DB::table('staffs')->insertGetId([
+                'name' => '山田 花子',
+                'employment_type' => EmploymentType::PartTime->value,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]),
+            DB::table('staffs')->insertGetId([
+                'name' => '佐藤　太郎',
+                'employment_type' => EmploymentType::Employee->value,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]),
+        ];
+        $migration = require database_path('migrations/2026_09_04_040000_split_staff_name_and_add_display_name.php');
+
+        $migration->down();
+        $migration->up();
+
+        $migrated = DB::table('staffs')
+            ->whereIn('id', $staffIds)
+            ->orderBy('id')
+            ->get(['name', 'last_name', 'first_name', 'display_name']);
+
+        $this->assertSame('山田 花子', $migrated[0]->name);
+        $this->assertSame('山田', $migrated[0]->last_name);
+        $this->assertSame('花子', $migrated[0]->first_name);
+        $this->assertNull($migrated[0]->display_name);
+        $this->assertSame('佐藤 太郎', $migrated[1]->name);
+        $this->assertSame('佐藤', $migrated[1]->last_name);
+        $this->assertSame('太郎', $migrated[1]->first_name);
+        $this->assertNull($migrated[1]->display_name);
+        $this->assertTrue(Schema::hasColumns('staffs', ['last_name', 'first_name', 'display_name']));
     }
 
     public function test_staff_creation_requires_and_creates_an_initial_store_assignment_atomically(): void

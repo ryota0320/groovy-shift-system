@@ -9,6 +9,7 @@ use App\Services\EffectivePeriodService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/** Covers MST-012 and MST-013. */
 class EffectivePeriodTest extends TestCase
 {
     use RefreshDatabase;

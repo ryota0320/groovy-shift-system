@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
+/** Covers TAX-020 and TAX-021. */
 class IncomeTaxStatusTest extends TestCase
 {
     use RefreshDatabase;

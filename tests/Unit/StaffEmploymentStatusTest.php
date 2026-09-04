@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Staff;
 use Tests\TestCase;
 
+/** Covers MST-003 through MST-006. */
 class StaffEmploymentStatusTest extends TestCase
 {
     public function test_staff_without_employment_dates_is_employed(): void

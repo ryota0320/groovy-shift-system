@@ -13,15 +13,17 @@ use App\Models\Store;
 use App\Models\User;
 use App\Services\AttendanceExcelService;
 use App\Services\MonthlyAggregationService;
+use App\Services\PayrollPdfService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
+use Mockery\MockInterface;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
 use ZipArchive;
 
-/** Covers AGG-001 through AGG-006, OUT-002 through OUT-007, OUT-009 and OUT-011. */
+/** Covers AGG-001 through AGG-006, OUT-002 through OUT-007, OUT-009 and OUT-011 through OUT-013. */
 class PhaseFiveOutputTest extends TestCase
 {
     use RefreshDatabase;
@@ -203,6 +205,47 @@ class PhaseFiveOutputTest extends TestCase
         } finally {
             @unlink($path);
         }
+    }
+
+    public function test_bulk_zip_generation_failure_is_not_successful_and_removes_its_temporary_file(): void
+    {
+        $admin = User::factory()->create();
+        $first = Staff::factory()->partTime()->create(['name' => '生成 一郎', 'hired_at' => '2026-01-01']);
+        $second = Staff::factory()->partTime()->create(['name' => '生成 二郎', 'hired_at' => '2026-01-01']);
+        $this->payroll($first);
+        $this->payroll($second);
+
+        $directory = storage_path('app/private/exports');
+        if (! is_dir($directory)) {
+            mkdir($directory, 0775, true);
+        }
+        $before = glob($directory.'/payroll-statements-*') ?: [];
+        sort($before);
+        $renderCount = 0;
+
+        $this->mock(PayrollPdfService::class, function (MockInterface $mock) use (&$renderCount): void {
+            $mock->shouldReceive('filename')
+                ->twice()
+                ->andReturnUsing(fn (Payroll $payroll): string => "{$payroll->staff_id}.pdf");
+            $mock->shouldReceive('render')
+                ->twice()
+                ->andReturnUsing(function () use (&$renderCount): string {
+                    $renderCount++;
+                    if ($renderCount === 2) {
+                        throw new \RuntimeException('テスト用のPDF生成エラー');
+                    }
+
+                    return '%PDF-test';
+                });
+        });
+
+        $this->actingAs($admin)
+            ->get(route('payrolls.statements.bulk', ['year' => 2026, 'month' => 9]))
+            ->assertInternalServerError();
+
+        $after = glob($directory.'/payroll-statements-*') ?: [];
+        sort($after);
+        $this->assertSame($before, $after);
     }
 
     public function test_monthly_shift_png_is_complete_and_output_routes_require_authentication(): void
