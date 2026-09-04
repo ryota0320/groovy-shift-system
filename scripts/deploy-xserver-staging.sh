@@ -51,6 +51,7 @@ rsync -az --delete \
     --exclude='docker/' \
     --exclude='docs/' \
     --exclude='node_modules/' \
+    --exclude='public/hot' \
     --exclude='scripts/' \
     --exclude='storage/' \
     --exclude='tests/' \
@@ -86,6 +87,7 @@ fi
 
 rsync -az --delete \
     --exclude='.htaccess' \
+    --exclude='hot' \
     --exclude='index.php' \
     --exclude='storage' \
     public/ "${remote_host}:${remote_public_dir}/"
@@ -94,6 +96,7 @@ rsync -az deploy/xserver/public-index.php "${remote_host}:${remote_public_dir}/i
 
 ssh "${remote_host}" "
     set -eu
+    rm -f '${remote_app_dir}/public/hot' '${remote_public_dir}/hot'
     if ! grep -q 'RewriteRule ^ index.php' '${remote_public_dir}/.htaccess' 2>/dev/null; then
         cp '${remote_app_dir}/public/.htaccess' '${remote_public_dir}/.htaccess'
     fi

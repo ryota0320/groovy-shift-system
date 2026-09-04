@@ -79,7 +79,7 @@ cd /home/xs662848/groovy-shift-system/staging
 ./scripts/deploy-xserver-staging.sh
 ```
 
-スクリプトはフロントエンドをDockerでビルドし、Laravel本体を非公開領域、公開アセットをサブドメインのドキュメントルートへ同期する。既存の`.env`、`storage`、Basic認証を含む公開先`.htaccess`は上書きしない。
+スクリプトはフロントエンドをDockerでビルドし、Laravel本体を非公開領域、公開アセットをサブドメインのドキュメントルートへ同期する。既存の`.env`、`storage`、Basic認証を含む公開先`.htaccess`は上書きしない。Docker開発用の`public/hot`は同期対象から除外し、ステージングではビルド済みアセットを使用する。
 
 ## 5. Cron
 
