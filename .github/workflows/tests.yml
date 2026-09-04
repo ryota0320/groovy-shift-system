@@ -13,6 +13,22 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
+    services:
+      database:
+        image: mariadb:10.5
+        env:
+          MARIADB_DATABASE: groovy_shift
+          MARIADB_USER: groovy
+          MARIADB_PASSWORD: groovy_password
+          MARIADB_ROOT_PASSWORD: root_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -33,6 +49,12 @@ jobs:
 
       - name: Setup Application
         run: composer setup
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: groovy_shift
+          DB_USERNAME: groovy
+          DB_PASSWORD: groovy_password
 
       - name: Run CI Checks
         run: composer ci:check
