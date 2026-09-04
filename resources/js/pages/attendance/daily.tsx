@@ -90,6 +90,9 @@ export default function DailyAttendance({
     );
     const [values, setValues] = useState<AttendanceValues>(initialValues);
     const [saving, setSaving] = useState(false);
+    const [deletingAttendanceId, setDeletingAttendanceId] = useState<
+        number | null
+    >(null);
     const [markingAbsentStaffId, setMarkingAbsentStaffId] = useState<
         number | null
     >(null);
@@ -216,17 +219,21 @@ export default function DailyAttendance({
     };
 
     const deleteAttendance = (staff: DailyAttendanceStaff) => {
-        if (!staff.attendance) return;
+        if (!staff.attendance || deletingAttendanceId !== null) return;
         const message = dirty
             ? `未保存の変更は破棄されます。${staff.name}さんの勤怠を削除しますか？`
             : `${staff.name}さんの勤怠を削除しますか？`;
         if (!window.confirm(message)) return;
 
         savingRef.current = true;
+        setDeletingAttendanceId(staff.attendance.id);
         router.delete(`/attendance/${staff.attendance.id}`, {
             preserveScroll: true,
+            onError: () =>
+                toast.error('勤怠を削除できませんでした。再試行してください。'),
             onFinish: () => {
                 savingRef.current = false;
+                setDeletingAttendanceId(null);
             },
         });
     };
@@ -537,6 +544,10 @@ export default function DailyAttendance({
                                     markingAbsent={
                                         markingAbsentStaffId === staff.staff_id
                                     }
+                                    deleting={
+                                        deletingAttendanceId ===
+                                        staff.attendance?.id
+                                    }
                                     onRemove={() =>
                                         removeAddedStaff(staff.staff_id)
                                     }
@@ -554,6 +565,7 @@ export default function DailyAttendance({
                                 replacementCandidates.length > 0
                             }
                             markingAbsentStaffId={markingAbsentStaffId}
+                            deletingAttendanceId={deletingAttendanceId}
                             onRemove={removeAddedStaff}
                         />
                     </>
@@ -713,6 +725,7 @@ function AttendanceCard({
     onAddReplacement,
     replacementCandidatesAvailable,
     markingAbsent,
+    deleting,
     onRemove,
 }: AttendanceRowProps) {
     const preview = calculateAttendancePreview(
@@ -805,6 +818,7 @@ function AttendanceCard({
                 onAddReplacement={onAddReplacement}
                 replacementCandidatesAvailable={replacementCandidatesAvailable}
                 markingAbsent={markingAbsent}
+                deleting={deleting}
                 onRemove={onRemove}
             />
         </article>
@@ -820,6 +834,7 @@ type AttendanceRowProps = {
     onAddReplacement: () => void;
     replacementCandidatesAvailable: boolean;
     markingAbsent: boolean;
+    deleting: boolean;
     onRemove: () => void;
 };
 
@@ -832,6 +847,7 @@ function AttendanceTable({
     onAddReplacement,
     replacementCandidatesAvailable,
     markingAbsentStaffId,
+    deletingAttendanceId,
     onRemove,
 }: {
     staffs: DailyAttendanceStaff[];
@@ -842,6 +858,7 @@ function AttendanceTable({
     onAddReplacement: (staff: DailyAttendanceStaff) => void;
     replacementCandidatesAvailable: boolean;
     markingAbsentStaffId: number | null;
+    deletingAttendanceId: number | null;
     onRemove: (staffId: number) => void;
 }) {
     return (
@@ -964,6 +981,10 @@ function AttendanceTable({
                                             markingAbsentStaffId ===
                                             staff.staff_id
                                         }
+                                        deleting={
+                                            deletingAttendanceId ===
+                                            staff.attendance?.id
+                                        }
                                         onRemove={() =>
                                             onRemove(staff.staff_id)
                                         }
@@ -1071,6 +1092,7 @@ function RowAction({
     onAddReplacement,
     replacementCandidatesAvailable,
     markingAbsent,
+    deleting,
     onRemove,
 }: {
     staff: DailyAttendanceStaff;
@@ -1079,6 +1101,7 @@ function RowAction({
     onAddReplacement: () => void;
     replacementCandidatesAvailable: boolean;
     markingAbsent: boolean;
+    deleting: boolean;
     onRemove: () => void;
 }) {
     if (staff.attendance) {
@@ -1088,10 +1111,11 @@ function RowAction({
                 variant="ghost"
                 size="sm"
                 className="text-destructive"
+                disabled={deleting}
                 onClick={onDelete}
             >
                 <Trash2 />
-                削除
+                {deleting ? '削除中…' : '削除'}
             </Button>
         );
     }

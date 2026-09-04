@@ -1,5 +1,6 @@
 import { Head, router } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight, Download } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import FileDownloadButton from '@/components/file-download-button';
 import MasterPageHeader from '@/components/master-page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,12 +111,12 @@ export default function AggregationIndex(props: Props) {
                             </div>
                         </div>
                     </div>
-                    <Button variant="outline" asChild>
-                        <a href={`/aggregations.xlsx?${exportQuery}`}>
-                            <Download />
-                            XLSX出力
-                        </a>
-                    </Button>
+                    <FileDownloadButton
+                        variant="outline"
+                        url={`/aggregations.xlsx?${exportQuery}`}
+                        label="XLSX出力"
+                        fallbackFilename={`${props.year}年${String(props.month).padStart(2, '0')}月_勤怠人件費集計.xlsx`}
+                    />
                 </section>
 
                 <Section

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 type Staff = {
     id: number;
     name: string;
+    display_name: string | null;
     employment_type: 'employee' | 'part_time';
     employment_type_label: string;
     is_employed: boolean;
@@ -74,12 +75,12 @@ export default function StaffIndex({
                     className="border-border bg-card grid gap-4 rounded-xl border p-4 shadow-sm md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
                 >
                     <div className="grid gap-2">
-                        <Label htmlFor="search">氏名検索</Label>
+                        <Label htmlFor="search">氏名・表示名検索</Label>
                         <Input
                             id="search"
                             name="search"
                             defaultValue={filters.search}
-                            placeholder="氏名を入力"
+                            placeholder="氏名または表示名を入力"
                         />
                     </div>
                     <div className="grid gap-2">
@@ -155,6 +156,12 @@ export default function StaffIndex({
                                             <tr key={staff.id}>
                                                 <td className="px-4 py-3 font-medium">
                                                     {staff.name}
+                                                    {staff.display_name && (
+                                                        <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+                                                            表示名:{' '}
+                                                            {staff.display_name}
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     {
@@ -261,6 +268,11 @@ function StaffCard({ staff }: { staff: Staff }) {
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <h2 className="font-semibold">{staff.name}</h2>
+                    {staff.display_name && (
+                        <p className="text-muted-foreground mt-0.5 text-xs">
+                            表示名: {staff.display_name}
+                        </p>
+                    )}
                     <p className="text-muted-foreground mt-1 text-sm">
                         {staff.employment_type_label}
                     </p>

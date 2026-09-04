@@ -549,7 +549,8 @@ class AttendanceManagementTest extends TestCase
         $this->payroll($staff);
 
         $this->actingAs($admin)->put(route('staffs.update', $staff), [
-            'name' => $staff->name,
+            'last_name' => $staff->last_name,
+            'first_name' => $staff->first_name,
             'employment_type' => EmploymentType::Employee->value,
             'hired_at' => '2026-01-01',
             'retired_at' => null,
@@ -638,7 +639,8 @@ class AttendanceManagementTest extends TestCase
         $assignment = $staff->storeAssignments()->firstOrFail();
 
         $this->actingAs($admin)->put(route('staffs.update', $staff), [
-            'name' => $staff->name,
+            'last_name' => $staff->last_name,
+            'first_name' => $staff->first_name,
             'employment_type' => EmploymentType::PartTime->value,
             'hired_at' => '2026-09-05',
             'retired_at' => null,

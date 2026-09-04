@@ -1,14 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
-import {
-    CalendarDays,
-    Download,
-    GripVertical,
-    Plus,
-    Rows3,
-    Trash2,
-} from 'lucide-react';
+import { CalendarDays, GripVertical, Plus, Rows3, Trash2 } from 'lucide-react';
 import { type DragEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import FileDownloadButton from '@/components/file-download-button';
 import MasterPageHeader from '@/components/master-page-header';
 import ShiftSelect, {
     decodeShiftValue,
@@ -34,6 +28,10 @@ import type {
 } from '@/types';
 import { cn } from '@/lib/utils';
 import { storeSelectionPlaceholder } from '@/lib/master-options';
+import {
+    monthlyShiftOverrideKey,
+    withoutMonthlyShiftOverride,
+} from '@/lib/monthly-shift-state';
 
 type Props = {
     stores: StoreOption[];
@@ -65,6 +63,7 @@ export default function MonthlyShift({
     const storePlaceholder = storeSelectionPlaceholder(stores, selectedStore);
 
     useEffect(() => {
+        setOverrides({});
         setOrderedStaffs(staffs);
         setDraggedStaffId(null);
         setDragOverStaffId(null);
@@ -79,15 +78,10 @@ export default function MonthlyShift({
         );
     };
 
-    const saveCell = (
-        staffId: number,
-        date: string,
-        previous: ShiftValue,
-        next: ShiftValue,
-    ) => {
+    const saveCell = (staffId: number, date: string, next: ShiftValue) => {
         if (!selectedStore) return;
 
-        const key = `${staffId}:${date}`;
+        const key = monthlyShiftOverrideKey(selectedStore.id, staffId, date);
         setOverrides((current) => ({
             ...current,
             [key]: encodeShiftValue(next),
@@ -106,17 +100,18 @@ export default function MonthlyShift({
             {
                 preserveScroll: true,
                 onError: (errors) => {
-                    setOverrides((current) => ({
-                        ...current,
-                        [key]: encodeShiftValue(previous),
-                    }));
                     toast.error(
                         String(
                             Object.values(errors)[0] ?? '保存に失敗しました。',
                         ),
                     );
                 },
-                onFinish: () => setSavingCell(null),
+                onFinish: () => {
+                    setOverrides((current) =>
+                        withoutMonthlyShiftOverride(current, key),
+                    );
+                    setSavingCell(null);
+                },
             },
         );
     };
@@ -225,7 +220,7 @@ export default function MonthlyShift({
             !staff.can_remove ||
             removingStaffId !== null ||
             !window.confirm(
-                `${staff.name}さんをこの月の一覧から削除しますか？\n対象月の登録済みシフトもすべて削除されます。スタッフ情報、所属情報、勤怠実績は削除されません。`,
+                `${staff.name}さんをこの月の一覧から削除しますか？\n表示中の店舗で勤務する対象月のシフトも削除されます。所属店舗・別店舗のシフト、休み、急な休み、スタッフ情報、所属情報、勤怠実績は削除されません。`,
             )
         ) {
             return;
@@ -260,14 +255,12 @@ export default function MonthlyShift({
                     actions={
                         <div className="flex flex-wrap gap-2">
                             {selectedStore && (
-                                <Button variant="outline" asChild>
-                                    <a
-                                        href={`/shifts/monthly.png?store_id=${selectedStore.id}&month=${month}`}
-                                    >
-                                        <Download />
-                                        PNG出力
-                                    </a>
-                                </Button>
+                                <FileDownloadButton
+                                    variant="outline"
+                                    url={`/shifts/monthly.png?store_id=${selectedStore.id}&month=${month}`}
+                                    label="PNG出力"
+                                    fallbackFilename={`${month}_${selectedStore.name}_シフト.png`}
+                                />
                             )}
                             {selectedStore && (
                                 <Button asChild>
@@ -489,7 +482,12 @@ export default function MonthlyShift({
                                             </th>
                                             {staff.cells.map((cell, index) => {
                                                 const day = days[index];
-                                                const key = `${staff.id}:${cell.date}`;
+                                                const key =
+                                                    monthlyShiftOverrideKey(
+                                                        selectedStore.id,
+                                                        staff.id,
+                                                        cell.date,
+                                                    );
                                                 const initial = {
                                                     shift_type: cell.shift_type,
                                                     start_time: cell.start_time,
@@ -541,7 +539,7 @@ export default function MonthlyShift({
                                                             </span>
                                                         ) : cell.conflict_store ? (
                                                             <div
-                                                                title={`${cell.conflict_store}に登録済み`}
+                                                                title={`${cell.conflict_store}の予定が登録済み`}
                                                                 className="flex justify-center"
                                                             >
                                                                 <ShiftSelect
@@ -565,7 +563,7 @@ export default function MonthlyShift({
                                                                         cell.available_store_ids
                                                                     }
                                                                     disabled
-                                                                    ariaLabel={`${staff.name} ${cell.date}のシフト（他店勤務のため入力不可）`}
+                                                                    ariaLabel={`${staff.name} ${cell.date}のシフト（別の予定があるため入力不可）`}
                                                                     onChange={() =>
                                                                         undefined
                                                                     }
@@ -599,7 +597,6 @@ export default function MonthlyShift({
                                                                     saveCell(
                                                                         staff.id,
                                                                         cell.date,
-                                                                        value,
                                                                         next,
                                                                     )
                                                                 }

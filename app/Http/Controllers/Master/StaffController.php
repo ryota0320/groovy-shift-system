@@ -44,7 +44,12 @@ class StaffController extends Controller
 
         $staffs = Staff::query()
             ->when($employmentType, fn (Builder $query) => $query->where('employment_type', $employmentType->value))
-            ->when($search !== '', fn (Builder $query) => $query->where('name', 'like', "%{$search}%"))
+            ->when($search !== '', fn (Builder $query) => $query->where(function (Builder $query) use ($search): void {
+                $query->where('last_name', 'like', "%{$search}%")
+                    ->orWhere('first_name', 'like', "%{$search}%")
+                    ->orWhere('display_name', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%");
+            }))
             ->when($status === 'employed', fn (Builder $query) => $query
                 ->where(fn (Builder $query) => $query
                     ->whereNull('hired_at')
@@ -74,7 +79,8 @@ class StaffController extends Controller
             ->withQueryString()
             ->through(fn (Staff $staff): array => [
                 'id' => $staff->id,
-                'name' => $staff->name,
+                'name' => $staff->full_name,
+                'display_name' => $staff->display_name,
                 'employment_type' => $staff->employment_type->value,
                 'employment_type_label' => $staff->employment_type->label(),
                 'is_employed' => $staff->isEmployedOn($targetDate),
@@ -111,7 +117,9 @@ class StaffController extends Controller
         $data = $request->validated();
         $staff = DB::transaction(function () use ($data): Staff {
             $staff = Staff::query()->create([
-                'name' => $data['name'],
+                'last_name' => $data['last_name'],
+                'first_name' => $data['first_name'],
+                'display_name' => $data['display_name'] ?? null,
                 'employment_type' => $data['employment_type'],
                 'hired_at' => $data['hired_at'] ?? null,
                 'retired_at' => $data['retired_at'] ?? null,
@@ -143,7 +151,10 @@ class StaffController extends Controller
         return Inertia::render('staffs/edit', [
             'staff' => [
                 'id' => $staff->id,
-                'name' => $staff->name,
+                'name' => $staff->full_name,
+                'last_name' => $staff->last_name,
+                'first_name' => $staff->first_name,
+                'display_name' => $staff->display_name,
                 'employment_type' => $staff->employment_type->value,
                 'employment_type_label' => $staff->employment_type->label(),
                 'hired_at' => $staff->hired_at?->toDateString(),
@@ -210,7 +221,9 @@ class StaffController extends Controller
     public function update(StaffRequest $request, Staff $staff): RedirectResponse
     {
         $data = $request->safe()->only([
-            'name',
+            'last_name',
+            'first_name',
+            'display_name',
             'employment_type',
             'hired_at',
             'retired_at',

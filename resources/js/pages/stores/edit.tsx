@@ -1,5 +1,7 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, CalendarPlus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import InputError from '@/components/input-error';
 import MasterPageHeader from '@/components/master-page-header';
 import { Button } from '@/components/ui/button';
@@ -33,6 +35,10 @@ export default function StoreEdit({
     previous_holiday_month: previousHolidayMonth,
     next_holiday_month: nextHolidayMonth,
 }: Props) {
+    const [removingHolidayId, setRemovingHolidayId] = useState<number | null>(
+        null,
+    );
+
     const moveHolidayMonth = (month: string) => {
         router.get(
             `/stores/${store.id}/edit`,
@@ -42,11 +48,20 @@ export default function StoreEdit({
     };
 
     const removeHoliday = (holidayId: number) => {
-        if (window.confirm('この店休日を削除しますか？')) {
+        if (
+            removingHolidayId === null &&
+            window.confirm('この店休日を削除しますか？')
+        ) {
+            setRemovingHolidayId(holidayId);
             router.delete(
                 `/stores/${store.id}/holidays/${holidayId}?holiday_month=${holidayMonth}`,
                 {
                     preserveScroll: true,
+                    onError: () =>
+                        toast.error(
+                            '店休日を削除できませんでした。再試行してください。',
+                        ),
+                    onFinish: () => setRemovingHolidayId(null),
                 },
             );
         }
@@ -266,6 +281,9 @@ export default function StoreEdit({
                                             variant="ghost"
                                             size="icon"
                                             aria-label={`${holiday.holiday_date}を削除`}
+                                            disabled={
+                                                removingHolidayId !== null
+                                            }
                                             onClick={() =>
                                                 removeHoliday(holiday.id)
                                             }

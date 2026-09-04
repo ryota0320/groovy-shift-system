@@ -41,10 +41,14 @@ class PayrollStatementController extends Controller
             ->where('employment_type', EmploymentType::PartTime->value)
             ->where(fn (Builder $query) => $query->whereNull('hired_at')->orWhereDate('hired_at', '<=', $end))
             ->where(fn (Builder $query) => $query->whereNull('retired_at')->orWhereDate('retired_at', '>=', $start))
+            ->whereHas('payrolls', fn (Builder $query) => $query
+                ->where('year', $year)
+                ->where('month', $month)
+                ->where('gross_pay', '>', 0))
             ->inDisplayOrder()
             ->get();
         if ($staffs->isEmpty()) {
-            throw ValidationException::withMessages(['payroll' => '対象月に在籍するアルバイトがいません。']);
+            throw ValidationException::withMessages(['payroll' => '支給額が1円以上の計算済み給与がありません。']);
         }
         $payrolls = $staffs->map(fn (Staff $staff): Payroll => $this->validPayroll($staff, $year, $month));
         $directory = storage_path('app/private/exports');
@@ -108,10 +112,13 @@ class PayrollStatementController extends Controller
         }
         $payroll = $staff->payrolls()->where('year', $year)->where('month', $month)->first();
         if (! $payroll instanceof Payroll) {
-            throw ValidationException::withMessages(['payroll' => "{$staff->name}さんの給与が未計算です。"]);
+            throw ValidationException::withMessages(['payroll' => "{$staff->full_name}さんの給与が未計算です。"]);
         }
         if ($payroll->needs_recalculation) {
-            throw ValidationException::withMessages(['payroll' => "{$staff->name}さんの給与を再計算してから明細を出力してください。"]);
+            throw ValidationException::withMessages(['payroll' => "{$staff->full_name}さんの給与を再計算してから明細を出力してください。"]);
+        }
+        if ($payroll->gross_pay <= 0) {
+            throw ValidationException::withMessages(['payroll' => "{$staff->full_name}さんは支給額が0円のため給与明細を出力できません。"]);
         }
 
         return $payroll;

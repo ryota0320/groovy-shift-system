@@ -175,6 +175,27 @@ class MasterDataTest extends TestCase
                 ->where('staffs.data.0.id', $staffs->last()->id));
     }
 
+    public function test_staff_name_is_split_and_display_name_is_searchable(): void
+    {
+        $admin = User::factory()->create();
+        $staff = Staff::factory()->partTime()->create([
+            'last_name' => '山田',
+            'first_name' => '花子',
+            'display_name' => 'はなちゃん',
+        ]);
+
+        $this->assertSame('山田 花子', $staff->name);
+        $this->assertSame('山田 花子', $staff->full_name);
+        $this->assertSame('はなちゃん', $staff->preferred_name);
+
+        $this->actingAs($admin)
+            ->get(route('staffs.index', ['search' => 'はなちゃん']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('staffs.data', 1)
+                ->where('staffs.data.0.name', '山田 花子')
+                ->where('staffs.data.0.display_name', 'はなちゃん'));
+    }
+
     public function test_staff_creation_requires_and_creates_an_initial_store_assignment_atomically(): void
     {
         $admin = User::factory()->create();
@@ -182,18 +203,20 @@ class MasterDataTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('staffs.store'), [
-                'name' => '所属未設定スタッフ',
+                'last_name' => '所属未設定',
+                'first_name' => 'スタッフ',
                 'employment_type' => EmploymentType::PartTime->value,
                 'hired_at' => '2026-09-01',
                 'retired_at' => null,
             ])
             ->assertSessionHasErrors(['store_id', 'assignment_effective_from']);
 
-        $this->assertDatabaseMissing('staffs', ['name' => '所属未設定スタッフ']);
+        $this->assertDatabaseMissing('staffs', ['name' => '所属未設定 スタッフ']);
 
         $this->actingAs($admin)
             ->post(route('staffs.store'), [
-                'name' => '初期所属ありスタッフ',
+                'last_name' => '初期所属あり',
+                'first_name' => 'スタッフ',
                 'employment_type' => EmploymentType::PartTime->value,
                 'hired_at' => '2026-09-01',
                 'retired_at' => null,
@@ -202,7 +225,9 @@ class MasterDataTest extends TestCase
             ])
             ->assertSessionHasNoErrors();
 
-        $staff = Staff::query()->where('name', '初期所属ありスタッフ')->firstOrFail();
+        $staff = Staff::query()->where('name', '初期所属あり スタッフ')->firstOrFail();
+        $this->assertSame('初期所属あり', $staff->last_name);
+        $this->assertSame('スタッフ', $staff->first_name);
         $this->assertDatabaseHas('staff_store_assignments', [
             'staff_id' => $staff->id,
             'store_id' => $store->id,
@@ -240,7 +265,8 @@ class MasterDataTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('staffs.store'), [
-                'name' => '社員 太郎',
+                'last_name' => '社員',
+                'first_name' => '太郎',
                 'employment_type' => EmploymentType::Employee->value,
                 'hired_at' => '2026-04-01',
                 'retired_at' => null,
@@ -265,7 +291,8 @@ class MasterDataTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('staffs.store'), [
-                'name' => 'アルバイト 花子',
+                'last_name' => 'アルバイト',
+                'first_name' => '花子',
                 'employment_type' => EmploymentType::PartTime->value,
                 'hired_at' => null,
                 'retired_at' => null,
@@ -556,7 +583,8 @@ class MasterDataTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('staffs.update', $staff), [
-                'name' => $staff->name,
+                'last_name' => $staff->last_name,
+                'first_name' => $staff->first_name,
                 'employment_type' => 'part_time',
                 'hired_at' => null,
                 'retired_at' => '2026-09-14',
@@ -648,7 +676,8 @@ class MasterDataTest extends TestCase
 
         $this->actingAs($admin)
             ->put(route('staffs.update', $staff), [
-                'name' => $staff->name,
+                'last_name' => $staff->last_name,
+                'first_name' => $staff->first_name,
                 'employment_type' => 'employee',
                 'hired_at' => null,
                 'retired_at' => null,
@@ -664,7 +693,7 @@ class MasterDataTest extends TestCase
         $store = Store::factory()->create(['name' => '46']);
         $headers = implode(',', array_values(StaffInitialImportService::HEADERS));
         $row = implode(',', [
-            'PT001', '山田 花子', 'アルバイト', '2026-04-01', '', '46', '2026-04-01', '',
+            'PT001', '山田', '花子', 'はなちゃん', 'アルバイト', '2026-04-01', '', '46', '2026-04-01', '',
             '1300', '2026-04-01', '', '500', '非課税', '2026-04-01', '', '甲欄', '1', '2026-04-01', '',
         ]);
         $file = UploadedFile::fake()->createWithContent('staffs.csv', "{$headers}\n{$row}\n");
@@ -675,6 +704,7 @@ class MasterDataTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $staff = Staff::query()->where('name', '山田 花子')->firstOrFail();
+        $this->assertSame('はなちゃん', $staff->display_name);
         $this->assertDatabaseHas('staff_store_assignments', ['staff_id' => $staff->id, 'store_id' => $store->id]);
         $this->assertDatabaseHas('staff_wage_rates', ['staff_id' => $staff->id, 'hourly_wage' => 1300]);
         $this->assertDatabaseHas('staff_store_transportation_fees', [
@@ -699,11 +729,11 @@ class MasterDataTest extends TestCase
             ARRAY_FILTER_USE_KEY,
         )));
         $partTime = implode(',', [
-            '山田 花子', 'アルバイト', '2026/4/1', '', '46', '2026-04-01', '',
+            '山田', '花子', '', 'アルバイト', '2026/4/1', '', '46', '2026-04-01', '',
             '1300', '2026/4/1', '', '', '', '', '', '甲欄', '', '2026-04-01', '',
         ]);
         $employee = implode(',', [
-            '佐藤 太郎', '社員', '2026-4-2', '', '46', '2026/4/2', '',
+            '佐藤', '太郎', '', '社員', '2026-4-2', '', '46', '2026/4/2', '',
         ]);
         $file = UploadedFile::fake()->createWithContent(
             'staffs.csv',
@@ -740,8 +770,8 @@ class MasterDataTest extends TestCase
         $firstStore = Store::factory()->create(['name' => '46']);
         $secondStore = Store::factory()->create(['name' => '47']);
         $headers = implode(',', array_values(StaffInitialImportService::HEADERS));
-        $first = implode(',', ['PT001', '山田 花子', 'アルバイト', '', '', '46', '2026-04-01']);
-        $second = implode(',', ['PT001', '山田 花子', 'アルバイト', '', '', '47', '2026-04-01']);
+        $first = implode(',', ['PT001', '山田', '花子', '', 'アルバイト', '', '', '46', '2026-04-01']);
+        $second = implode(',', ['PT001', '山田', '花子', '', 'アルバイト', '', '', '47', '2026-04-01']);
         $file = UploadedFile::fake()->createWithContent(
             'staffs.csv',
             "{$headers}\n{$first}\n{$second}\n",
@@ -768,8 +798,8 @@ class MasterDataTest extends TestCase
     {
         $admin = User::factory()->create();
         $headers = implode(',', array_values(StaffInitialImportService::HEADERS));
-        $valid = implode(',', ['PT001', '山田 花子', 'アルバイト']);
-        $invalid = implode(',', ['PT002', '佐藤 太郎', '不明']);
+        $valid = implode(',', ['PT001', '山田', '花子', '', 'アルバイト']);
+        $invalid = implode(',', ['PT002', '佐藤', '太郎', '', '不明']);
         $file = UploadedFile::fake()->createWithContent('staffs.csv', "{$headers}\n{$valid}\n{$invalid}\n");
 
         $this->actingAs($admin)
@@ -783,8 +813,8 @@ class MasterDataTest extends TestCase
     {
         $admin = User::factory()->create();
         $headers = implode(',', array_values(StaffInitialImportService::HEADERS));
-        $valid = implode(',', ['PT001', '山田 花子', 'アルバイト']);
-        $invalid = implode(',', ['PT002', '佐藤 太郎', '不明']);
+        $valid = implode(',', ['PT001', '山田', '花子', '', 'アルバイト']);
+        $invalid = implode(',', ['PT002', '佐藤', '太郎', '', '不明']);
         $file = UploadedFile::fake()->createWithContent(
             'staffs.csv',
             "{$headers}\n{$valid}\n\n{$invalid}\n",
@@ -803,7 +833,7 @@ class MasterDataTest extends TestCase
     {
         $admin = User::factory()->create();
         $headers = implode(',', array_values(StaffInitialImportService::HEADERS));
-        $row = implode(',', ['PT001', '山田 花子', 'アルバイト']);
+        $row = implode(',', ['PT001', '山田', '花子', '', 'アルバイト']);
         $contents = mb_convert_encoding("{$headers}\n{$row}\n", 'CP932', 'UTF-8');
         $file = UploadedFile::fake()->createWithContent('staffs.csv', $contents);
 
@@ -824,10 +854,10 @@ class MasterDataTest extends TestCase
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getActiveSheet()->fromArray([
             array_values(StaffInitialImportService::HEADERS),
-            ['EMP001', '佐藤 太郎', '社員'],
+            ['EMP001', '佐藤', '太郎', '', '社員'],
         ]);
-        $spreadsheet->getActiveSheet()->setCellValue('D2', ExcelDate::PHPToExcel(new \DateTimeImmutable('2026-04-01')));
-        $spreadsheet->getActiveSheet()->getStyle('D2')->getNumberFormat()->setFormatCode('m/d/yyyy');
+        $spreadsheet->getActiveSheet()->setCellValue('F2', ExcelDate::PHPToExcel(new \DateTimeImmutable('2026-04-01')));
+        $spreadsheet->getActiveSheet()->getStyle('F2')->getNumberFormat()->setFormatCode('m/d/yyyy');
         $path = tempnam(sys_get_temp_dir(), 'staff-import-').'.xlsx';
         (new Xlsx($spreadsheet))->save($path);
         $spreadsheet->disconnectWorksheets();
@@ -859,9 +889,28 @@ class MasterDataTest extends TestCase
     {
         $admin = User::factory()->create();
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->get(route('staffs.import.template'))
             ->assertOk()
             ->assertDownload('staff-initial-import-template.xlsx');
+
+        $path = tempnam(sys_get_temp_dir(), 'staff-template-').'.xlsx';
+        file_put_contents($path, $response->streamedContent());
+
+        try {
+            $spreadsheet = (new \PhpOffice\PhpSpreadsheet\Reader\Xlsx)->load($path);
+            $sheet = $spreadsheet->getSheetByName('インポートデータ');
+            $this->assertNotNull($sheet);
+            $this->assertSame(
+                array_values(StaffInitialImportService::HEADERS),
+                $sheet->rangeToArray('A1:U1', null, true, false)[0],
+            );
+            $this->assertSame('山田', $sheet->getCell('B2')->getValue());
+            $this->assertSame('花子', $sheet->getCell('C2')->getValue());
+            $this->assertSame('はなちゃん', $sheet->getCell('D2')->getValue());
+            $spreadsheet->disconnectWorksheets();
+        } finally {
+            @unlink($path);
+        }
     }
 }

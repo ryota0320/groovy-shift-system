@@ -1,5 +1,7 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, KeyRound, UserRound } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import InputError from '@/components/input-error';
 import MasterPageHeader from '@/components/master-page-header';
 import StaffHistorySections from '@/components/staff-history-sections';
@@ -20,10 +22,21 @@ export default function StaffEdit({
         income_tax_categories: SelectOption[];
     };
 }) {
+    const [removingAccount, setRemovingAccount] = useState(false);
+
     const removeAccount = () => {
-        if (window.confirm('このログインアカウントを削除しますか？')) {
+        if (
+            !removingAccount &&
+            window.confirm('このログインアカウントを削除しますか？')
+        ) {
+            setRemovingAccount(true);
             router.delete(`/staffs/${staff.id}/account`, {
                 preserveScroll: true,
+                onError: () =>
+                    toast.error(
+                        'アカウントを削除できませんでした。再試行してください。',
+                    ),
+                onFinish: () => setRemovingAccount(false),
             });
         }
     };
@@ -59,15 +72,51 @@ export default function StaffEdit({
                         >
                             {({ processing, errors }) => (
                                 <>
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="last-name">
+                                                氏
+                                            </Label>
+                                            <Input
+                                                id="last-name"
+                                                name="last_name"
+                                                defaultValue={staff.last_name}
+                                                required
+                                            />
+                                            <InputError
+                                                message={errors.last_name}
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="first-name">
+                                                名
+                                            </Label>
+                                            <Input
+                                                id="first-name"
+                                                name="first_name"
+                                                defaultValue={staff.first_name}
+                                                required
+                                            />
+                                            <InputError
+                                                message={errors.first_name}
+                                            />
+                                        </div>
+                                    </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name">氏名</Label>
+                                        <Label htmlFor="display-name">
+                                            表示名（ニックネーム）
+                                        </Label>
                                         <Input
-                                            id="name"
-                                            name="name"
-                                            defaultValue={staff.name}
-                                            required
+                                            id="display-name"
+                                            name="display_name"
+                                            defaultValue={
+                                                staff.display_name ?? ''
+                                            }
+                                            placeholder="未入力の場合は氏名を表示"
                                         />
-                                        <InputError message={errors.name} />
+                                        <InputError
+                                            message={errors.display_name}
+                                        />
                                     </div>
                                     <div className="grid gap-2">
                                         <Label htmlFor="employment-type">
@@ -155,7 +204,7 @@ export default function StaffEdit({
                                     <>
                                         <div className="grid gap-2">
                                             <Label htmlFor="account-name">
-                                                表示名
+                                                アカウント表示名
                                             </Label>
                                             <Input
                                                 id="account-name"
@@ -224,9 +273,15 @@ export default function StaffEdit({
                                                 <Button
                                                     type="button"
                                                     variant="destructive"
+                                                    disabled={
+                                                        processing ||
+                                                        removingAccount
+                                                    }
                                                     onClick={removeAccount}
                                                 >
-                                                    アカウントを削除
+                                                    {removingAccount
+                                                        ? '削除中…'
+                                                        : 'アカウントを削除'}
                                                 </Button>
                                             )}
                                         </div>

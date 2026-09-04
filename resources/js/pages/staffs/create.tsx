@@ -20,7 +20,7 @@ export default function StaffCreate({
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <MasterPageHeader
                     title="スタッフ登録"
-                    description="氏名、雇用区分、在籍期間と初期所属店舗を登録します。"
+                    description="氏名、表示名、雇用区分、在籍期間と初期所属店舗を登録します。"
                     actions={
                         <Button variant="outline" asChild>
                             <Link href="/staffs">
@@ -35,15 +35,43 @@ export default function StaffCreate({
                     <Form action="/staffs" method="post" className="space-y-5">
                         {({ processing, errors }) => (
                             <>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="last-name">氏</Label>
+                                        <Input
+                                            id="last-name"
+                                            name="last_name"
+                                            autoComplete="family-name"
+                                            required
+                                        />
+                                        <InputError
+                                            message={errors.last_name}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="first-name">名</Label>
+                                        <Input
+                                            id="first-name"
+                                            name="first_name"
+                                            autoComplete="given-name"
+                                            required
+                                        />
+                                        <InputError
+                                            message={errors.first_name}
+                                        />
+                                    </div>
+                                </div>
+
                                 <div className="grid gap-2">
-                                    <Label htmlFor="name">氏名</Label>
+                                    <Label htmlFor="display-name">
+                                        表示名（ニックネーム）
+                                    </Label>
                                     <Input
-                                        id="name"
-                                        name="name"
-                                        autoComplete="name"
-                                        required
+                                        id="display-name"
+                                        name="display_name"
+                                        placeholder="未入力の場合は氏名を表示"
                                     />
-                                    <InputError message={errors.name} />
+                                    <InputError message={errors.display_name} />
                                 </div>
 
                                 <div className="grid gap-2">

@@ -23,7 +23,9 @@ class StaffInitialImportService
     /** @var array<string, string> */
     public const HEADERS = [
         'staff_key' => 'スタッフキー',
-        'name' => '氏名',
+        'last_name' => '氏',
+        'first_name' => '名',
+        'display_name' => '表示名',
         'employment_type' => '雇用区分',
         'hired_at' => '入社日',
         'retired_at' => '退職日',
@@ -136,7 +138,7 @@ class StaffInitialImportService
         }
 
         $headerIndexes = $this->headerIndexes($rows[0]);
-        $requiredHeaders = ['name', 'employment_type'];
+        $requiredHeaders = ['last_name', 'first_name', 'employment_type'];
 
         foreach ($requiredHeaders as $requiredHeader) {
             if (! array_key_exists($requiredHeader, $headerIndexes)) {
@@ -177,11 +179,22 @@ class StaffInitialImportService
             $staffKey = $providedStaffKey === ''
                 ? "auto:{$rowNumber}"
                 : "provided:{$providedStaffKey}";
-            $name = $this->string($value('name'));
+            $lastName = $this->string($value('last_name'));
+            $firstName = $this->string($value('first_name'));
+            $displayName = $this->string($value('display_name'));
             $employmentType = $this->employmentType($value('employment_type'), $rowNumber);
 
-            if ($name === '') {
-                $this->fail($rowNumber, '氏名は必須です。');
+            if ($lastName === '') {
+                $this->fail($rowNumber, '氏は必須です。');
+            }
+            if ($firstName === '') {
+                $this->fail($rowNumber, '名は必須です。');
+            }
+            if (mb_strlen($lastName) > 120 || mb_strlen($firstName) > 120) {
+                $this->fail($rowNumber, '氏と名はそれぞれ120文字以内で入力してください。');
+            }
+            if (mb_strlen($displayName) > 255) {
+                $this->fail($rowNumber, '表示名は255文字以内で入力してください。');
             }
 
             $hiredAt = $this->date($value('hired_at'), $rowNumber, '入社日');
@@ -190,15 +203,20 @@ class StaffInitialImportService
 
             if (! isset($staffs[$staffKey])) {
                 $staffs[$staffKey] = new StaffInitialImportRecord([
-                    'name' => $name,
+                    'last_name' => $lastName,
+                    'first_name' => $firstName,
+                    'display_name' => $displayName === '' ? null : $displayName,
                     'employment_type' => $employmentType,
                     'hired_at' => $hiredAt,
                     'retired_at' => $retiredAt,
                 ]);
             } else {
                 $profile = &$staffs[$staffKey]->staff;
-                if ($profile['name'] !== $name || $profile['employment_type'] !== $employmentType) {
-                    $this->fail($rowNumber, "スタッフキー「{$providedStaffKey}」の氏名または雇用区分が他の行と一致しません。");
+                if ($profile['last_name'] !== $lastName
+                    || $profile['first_name'] !== $firstName
+                    || $profile['display_name'] !== ($displayName === '' ? null : $displayName)
+                    || $profile['employment_type'] !== $employmentType) {
+                    $this->fail($rowNumber, "スタッフキー「{$providedStaffKey}」の氏名、表示名または雇用区分が他の行と一致しません。");
                 }
                 $this->mergeProfileDate($profile, 'hired_at', $hiredAt, $rowNumber, '入社日');
                 $this->mergeProfileDate($profile, 'retired_at', $retiredAt, $rowNumber, '退職日');

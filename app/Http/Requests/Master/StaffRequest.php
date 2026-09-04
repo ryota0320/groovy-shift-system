@@ -8,11 +8,23 @@ use Illuminate\Validation\Rule;
 
 class StaffRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $displayName = trim((string) $this->input('display_name', ''));
+        $this->merge([
+            'last_name' => trim((string) $this->input('last_name', '')),
+            'first_name' => trim((string) $this->input('first_name', '')),
+            'display_name' => $displayName === '' ? null : $displayName,
+        ]);
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:120'],
+            'first_name' => ['required', 'string', 'max:120'],
+            'display_name' => ['nullable', 'string', 'max:255'],
             'employment_type' => ['required', Rule::enum(EmploymentType::class)],
             'hired_at' => ['nullable', 'date'],
             'retired_at' => [

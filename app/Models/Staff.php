@@ -7,6 +7,7 @@ use Database\Factories\StaffFactory;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,17 +17,68 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property string $name
+ * @property string|null $last_name
+ * @property string|null $first_name
+ * @property string|null $display_name
+ * @property-read string $full_name
+ * @property-read string $preferred_name
  * @property EmploymentType $employment_type
  * @property Carbon|null $hired_at
  * @property Carbon|null $retired_at
  */
-#[Fillable(['name', 'employment_type', 'hired_at', 'retired_at'])]
+#[Fillable(['name', 'last_name', 'first_name', 'display_name', 'employment_type', 'hired_at', 'retired_at'])]
 class Staff extends Model
 {
     /** @use HasFactory<StaffFactory> */
     use HasFactory;
 
     protected $table = 'staffs';
+
+    protected static function booted(): void
+    {
+        static::saving(function (Staff $staff): void {
+            // Keep the former column as a derived compatibility value while all
+            // new code uses the split fields as the source of truth.
+            $staff->attributes['name'] = $staff->full_name;
+        });
+    }
+
+    /** @return Attribute<string, mixed> */
+    protected function name(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): string => $this->full_name,
+            set: function (mixed $value): array {
+                $parts = preg_split('/[\s　]+/u', trim((string) $value), 2) ?: [];
+
+                return [
+                    'last_name' => $parts[0] ?? '',
+                    'first_name' => $parts[1] ?? '',
+                ];
+            },
+        );
+    }
+
+    /** @return Attribute<string, never> */
+    protected function fullName(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): string => trim(implode(' ', array_filter([
+                trim((string) $this->last_name),
+                trim((string) $this->first_name),
+            ], fn (string $part): bool => $part !== ''))),
+        );
+    }
+
+    /** @return Attribute<string, never> */
+    protected function preferredName(): Attribute
+    {
+        return Attribute::make(
+            get: fn (): string => trim((string) $this->display_name) !== ''
+                ? trim((string) $this->display_name)
+                : $this->full_name,
+        );
+    }
 
     /** @return HasOne<User, $this> */
     public function user(): HasOne

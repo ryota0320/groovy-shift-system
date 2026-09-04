@@ -12,7 +12,9 @@ class StaffFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'last_name' => fake()->lastName(),
+            'first_name' => fake()->firstName(),
+            'display_name' => null,
             'employment_type' => EmploymentType::PartTime,
             'hired_at' => fake()->optional()->date(),
             'retired_at' => null,

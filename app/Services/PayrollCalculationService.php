@@ -15,6 +15,7 @@ use App\Models\StaffWageRate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -69,6 +70,27 @@ class PayrollCalculationService
             ->orderBy('work_date')
             ->lockForUpdate()
             ->get();
+        $wages = StaffWageRate::query()
+            ->where('staff_id', $staff->id)
+            ->whereDate('effective_from', '<=', $end)
+            ->where(fn (Builder $query) => $query
+                ->whereNull('effective_to')
+                ->orWhereDate('effective_to', '>=', $start))
+            ->get();
+        $lateRates = LateNightRateSetting::query()
+            ->whereDate('effective_from', '<=', $end)
+            ->where(fn (Builder $query) => $query
+                ->whereNull('effective_to')
+                ->orWhereDate('effective_to', '>=', $start))
+            ->get();
+        $transportationFees = StaffStoreTransportationFee::query()
+            ->where('staff_id', $staff->id)
+            ->whereIn('store_id', $attendances->pluck('store_id')->unique())
+            ->whereDate('effective_from', '<=', $end)
+            ->where(fn (Builder $query) => $query
+                ->whereNull('effective_to')
+                ->orWhereDate('effective_to', '>=', $start))
+            ->get();
         $rawBasePay = 0;
         $rawLateNightPay = 0;
         $transportationTaxable = 0;
@@ -77,24 +99,25 @@ class PayrollCalculationService
         foreach ($attendances as $attendance) {
             $date = $attendance->work_date->toDateString();
             /** @var StaffWageRate $wage */
-            $wage = $this->oneEffective(
-                StaffWageRate::query()->where('staff_id', $staff->id),
+            $wage = $this->effectiveSetting(
+                $wages,
                 $date,
                 "{$staff->name}さんの{$date}の時給が一意に設定されていません。",
+                false,
             );
             /** @var LateNightRateSetting|null $lateRate */
-            $lateRate = $this->optionalEffective(
-                LateNightRateSetting::query(),
+            $lateRate = $this->effectiveSetting(
+                $lateRates,
                 $date,
                 "{$staff->name}さんの{$date}の深夜加算額が複数設定されています。",
+                true,
             );
             /** @var StaffStoreTransportationFee|null $transportation */
-            $transportation = $this->optionalEffective(
-                StaffStoreTransportationFee::query()
-                    ->where('staff_id', $staff->id)
-                    ->where('store_id', $attendance->store_id),
+            $transportation = $this->effectiveSetting(
+                $transportationFees->where('store_id', $attendance->store_id),
                 $date,
                 "{$staff->name}さんの{$date}の勤務店舗に対する交通費が複数設定されています。",
+                true,
             );
 
             $rawBasePay += $attendance->working_minutes * $wage->hourly_wage;
@@ -113,7 +136,7 @@ class PayrollCalculationService
         }
 
         /** @var StaffIncomeTaxSetting $taxSetting */
-        $taxSetting = $this->oneEffective(
+        $taxSetting = $this->oneEffectiveQuery(
             $staff->incomeTaxSettings()->getQuery(),
             $paymentDate->toDateString(),
             "{$staff->name}さんの支給日{$paymentDate->format('Y/m/d')}に有効な所得税設定が一意に登録されていません。",
@@ -185,7 +208,7 @@ class PayrollCalculationService
      * @param  Builder<TModel>  $query
      * @return TModel
      */
-    private function oneEffective(Builder $query, string $date, string $message): Model
+    private function oneEffectiveQuery(Builder $query, string $date, string $message): Model
     {
         $settings = $query
             ->whereDate('effective_from', '<=', $date)
@@ -204,25 +227,27 @@ class PayrollCalculationService
         return $setting;
     }
 
-    /** @template TModel of Model
-     * @param  Builder<TModel>  $query
-     * @return TModel|null
+    /**
+     * @template TSetting of StaffWageRate|LateNightRateSetting|StaffStoreTransportationFee
+     *
+     * @param  Collection<int, TSetting>  $settings
+     * @return TSetting|null
      */
-    private function optionalEffective(Builder $query, string $date, string $multipleMessage): ?Model
-    {
-        $settings = $query
-            ->whereDate('effective_from', '<=', $date)
-            ->where(fn (Builder $query) => $query
-                ->whereNull('effective_to')
-                ->orWhereDate('effective_to', '>=', $date))
-            ->limit(2)
-            ->get();
-        if ($settings->count() > 1) {
-            throw ValidationException::withMessages(['payroll' => $multipleMessage]);
+    private function effectiveSetting(
+        Collection $settings,
+        string $date,
+        string $message,
+        bool $optional,
+    ): StaffWageRate|LateNightRateSetting|StaffStoreTransportationFee|null {
+        $effective = $settings
+            ->filter(fn ($setting): bool => $setting->isEffectiveOn($date))
+            ->values();
+        if ($effective->count() > 1 || (! $optional && $effective->count() !== 1)) {
+            throw ValidationException::withMessages(['payroll' => $message]);
         }
 
-        /** @var TModel|null $setting */
-        $setting = $settings->first();
+        /** @var TSetting|null $setting */
+        $setting = $effective->first();
 
         return $setting;
     }

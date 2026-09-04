@@ -4,12 +4,14 @@ namespace App\Services;
 
 use App\Data\MonthlyAggregationReport;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use RuntimeException;
+use Throwable;
 
 class AttendanceExcelService
 {
@@ -24,6 +26,7 @@ class AttendanceExcelService
             [],
             ['スタッフ', '雇用区分', '出勤日数', '勤務時間', '深夜時間', '基本給相当', '深夜勤務手当', '交通費', '人件費'],
         ]);
+        $storeSheet->setCellValueExplicit('B2', $storeName, DataType::TYPE_STRING);
         $rowNumber = 5;
         foreach ($report->storeRows as $row) {
             $storeSheet->fromArray([[
@@ -37,6 +40,7 @@ class AttendanceExcelService
                 $row['transportation_fee'] ?? '対象外',
                 $row['labor_cost'] ?? '対象外',
             ]], null, "A{$rowNumber}");
+            $storeSheet->setCellValueExplicit("A{$rowNumber}", $row['name'], DataType::TYPE_STRING);
             $rowNumber++;
         }
         $storeSheet->fromArray([[
@@ -62,6 +66,14 @@ class AttendanceExcelService
             [],
             $headers,
         ]);
+        foreach ($report->stores as $index => $store) {
+            $column = Coordinate::stringFromColumnIndex(4 + $index);
+            $crossSheet->setCellValueExplicit(
+                "{$column}3",
+                $store['name'].' 勤務時間',
+                DataType::TYPE_STRING,
+            );
+        }
         $rowNumber = 4;
         foreach ($report->crossStoreRows as $row) {
             $values = [$row['name'], $row['employment_type_label'], $row['attendance_days']];
@@ -82,6 +94,7 @@ class AttendanceExcelService
                     : ($payroll === null ? '未計算' : ($payroll['needs_recalculation'] ? '再計算が必要' : '計算済み')),
             );
             $crossSheet->fromArray([$values], null, "A{$rowNumber}");
+            $crossSheet->setCellValueExplicit("A{$rowNumber}", $row['name'], DataType::TYPE_STRING);
             $rowNumber++;
         }
         $this->styleSheet($crossSheet, 3, max(3, $rowNumber - 1), count($headers));
@@ -94,8 +107,15 @@ class AttendanceExcelService
         if ($path === false) {
             throw new RuntimeException('XLSX一時ファイルを作成できません。');
         }
-        (new Xlsx($spreadsheet))->save($path);
-        $spreadsheet->disconnectWorksheets();
+        try {
+            (new Xlsx($spreadsheet))->save($path);
+        } catch (Throwable $exception) {
+            @unlink($path);
+
+            throw $exception;
+        } finally {
+            $spreadsheet->disconnectWorksheets();
+        }
 
         return $path;
     }

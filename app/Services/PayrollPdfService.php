@@ -12,7 +12,7 @@ class PayrollPdfService
 {
     public function render(Payroll $payroll): string
     {
-        $payroll->loadMissing('staff:id,name');
+        $this->loadFormalStaffName($payroll);
         $attendanceDays = AttendanceRecord::query()
             ->where('staff_id', $payroll->staff_id)
             ->whereYear('work_date', $payroll->year)
@@ -58,10 +58,19 @@ class PayrollPdfService
 
     public function filename(Payroll $payroll): string
     {
-        $payroll->loadMissing('staff:id,name');
-        $name = preg_replace('/[\\\\\/:*?"<>|]/u', '', $payroll->staff->name) ?: 'スタッフ';
+        $this->loadFormalStaffName($payroll);
+        $name = preg_replace('/[\\\\\/:*?"<>|\x00-\x1F\x7F]/u', '', $payroll->staff->full_name) ?: 'スタッフ';
 
         return sprintf('%d年%02d月_%s_給与明細.pdf', $payroll->year, $payroll->month, $name);
+    }
+
+    private function loadFormalStaffName(Payroll $payroll): void
+    {
+        if (! $payroll->relationLoaded('staff')
+            || ! array_key_exists('last_name', $payroll->staff->getAttributes())
+            || ! array_key_exists('first_name', $payroll->staff->getAttributes())) {
+            $payroll->load('staff:id,name,last_name,first_name');
+        }
     }
 
     private function japaneseFontPath(): ?string

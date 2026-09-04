@@ -44,7 +44,7 @@ class PayrollController extends Controller
 
                 return [
                     'staff_id' => $staff->id,
-                    'name' => $staff->name,
+                    'name' => $staff->full_name,
                     'commission' => $commission instanceof Commission ? $commission->amount : 0,
                     'payroll' => $payroll instanceof Payroll ? $this->payrollPayload($payroll) : null,
                 ];
@@ -63,7 +63,7 @@ class PayrollController extends Controller
     {
         [$year, $month] = $this->validatedPeriod($request);
         $this->payrolls->calculate($staff, $year, $month);
-        Inertia::flash('toast', ['type' => 'success', 'message' => "{$staff->name}さんの給与を再計算しました。"]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => "{$staff->full_name}さんの給与を再計算しました。"]);
 
         return back();
     }

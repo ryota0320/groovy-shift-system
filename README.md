@@ -13,6 +13,7 @@
 - [仕様変更履歴](docs/changelog.md)
 - [設計判断記録](docs/adr/README.md)
 - [所得税額表の年次更新手順](docs/income-tax-annual-update.md)
+- [運用・障害対応手順](docs/operations.md)
 
 ## 技術構成
 
@@ -67,6 +68,9 @@ docker compose run --rm node npm run types:check
 # 本番用フロントエンドビルド
 docker compose run --rm node npm run build
 
+# アプリケーションログを確認
+docker compose logs --tail=200 app scheduler web
+
 # 翌年分の国税庁・源泉徴収税額表を手動確認（年度省略時は翌年）
 docker compose exec app php artisan income-tax:fetch-next-year 2028
 ```
@@ -78,6 +82,8 @@ docker compose exec app php artisan income-tax:fetch-next-year 2028
 初期開発管理者でログインすると、サイドメニューの「所得税額表状況」で現在の適用年度と最新取得状態を確認できます。このメニューとURLは、設定された初期開発管理者のメールアドレスに限定されます。
 
 ポートが重複する場合は `.env` の `APP_PORT`、`VITE_PORT`、`FORWARD_DB_PORT` を変更してください。
+
+バックアップ、復元、更新、障害時の確認順序は[運用・障害対応手順](docs/operations.md)を参照してください。給与計算やファイル生成に失敗した場合は画面のエラーを確認し、設定を修正してから再試行できます。
 
 ## 文書の更新方針
 

@@ -4,10 +4,12 @@ import {
     BarChart3,
     CalendarDays,
     Clock3,
+    LoaderCircle,
     Store,
     UsersRound,
 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
 import type { StoreOption } from '@/types';
@@ -50,6 +52,10 @@ export default function Dashboard({
             { store_id: Number(storeId) },
             {
                 preserveScroll: true,
+                onError: () =>
+                    toast.error(
+                        '店舗を切り替えられませんでした。再試行してください。',
+                    ),
                 onFinish: () => setSelectingStore(false),
             },
         );
@@ -173,8 +179,16 @@ export default function Dashboard({
                                         </option>
                                     ))}
                                 </select>
-                                <p className="text-muted-foreground mt-3 text-sm">
-                                    シフト画面の初期店舗にも反映されます。
+                                <p
+                                    className="text-muted-foreground mt-3 flex items-center gap-2 text-sm"
+                                    aria-live="polite"
+                                >
+                                    {selectingStore && (
+                                        <LoaderCircle className="size-4 animate-spin" />
+                                    )}
+                                    {selectingStore
+                                        ? '店舗を切り替えています…'
+                                        : 'シフト画面の初期店舗にも反映されます。'}
                                 </p>
                             </>
                         )}

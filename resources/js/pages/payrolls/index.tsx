@@ -3,13 +3,13 @@ import {
     ArrowLeft,
     ArrowRight,
     Calculator,
-    Download,
     RefreshCw,
     Save,
     Trash2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import FileDownloadButton from '@/components/file-download-button';
 import MasterPageHeader from '@/components/master-page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import {
     formatMinutes,
     payrollCardMetrics,
     payrollDisplayStatus,
+    payrollStatementAvailable,
     validCommissionAmount,
     yen,
 } from '@/lib/payroll-presentation';
@@ -47,12 +48,12 @@ export default function PayrollIndex({
     );
     const [calculatingId, setCalculatingId] = useState<number | null>(null);
     const [calculatingAll, setCalculatingAll] = useState(false);
+    const payablePayrolls = staffs
+        .map((staff) => staff.payroll)
+        .filter((payroll) => payroll !== null && payroll.gross_pay > 0);
     const canDownloadAll =
-        staffs.length > 0 &&
-        staffs.every(
-            (staff) =>
-                staff.payroll !== null && !staff.payroll.needs_recalculation,
-        );
+        payablePayrolls.length > 0 &&
+        payablePayrolls.every(payrollStatementAvailable);
     const outputQuery = `year=${year}&month=${month}`;
 
     useEffect(() => setCommissions(commissionValues(staffs)), [staffs]);
@@ -165,30 +166,18 @@ export default function PayrollIndex({
                         </div>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
-                        <Button
+                        <FileDownloadButton
                             variant="outline"
                             disabled={!canDownloadAll}
-                            asChild={canDownloadAll}
                             title={
                                 canDownloadAll
                                     ? undefined
-                                    : '全員の給与計算を完了してから出力してください'
+                                    : '支給額が1円以上の給与を計算してから出力してください'
                             }
-                        >
-                            {canDownloadAll ? (
-                                <a
-                                    href={`/payroll-statements.zip?${outputQuery}`}
-                                >
-                                    <Download />
-                                    給与明細一括ZIP
-                                </a>
-                            ) : (
-                                <span>
-                                    <Download />
-                                    給与明細一括ZIP
-                                </span>
-                            )}
-                        </Button>
+                            url={`/payroll-statements.zip?${outputQuery}`}
+                            label="給与明細一括ZIP"
+                            fallbackFilename={`${year}年${String(month).padStart(2, '0')}月_給与明細一括.zip`}
+                        />
                         <Button
                             disabled={calculatingAll || staffs.length === 0}
                             onClick={calculateAll}
@@ -391,24 +380,19 @@ export default function PayrollIndex({
                                                                 ? '計算中…'
                                                                 : '再計算'}
                                                         </Button>
-                                                        {payroll &&
-                                                            !payroll.needs_recalculation && (
-                                                                <Button
-                                                                    size="icon"
-                                                                    variant="ghost"
-                                                                    asChild
-                                                                    title="給与明細PDF"
-                                                                >
-                                                                    <a
-                                                                        href={`/payrolls/${staff.staff_id}/statement?${outputQuery}`}
-                                                                    >
-                                                                        <Download />
-                                                                        <span className="sr-only">
-                                                                            給与明細PDF
-                                                                        </span>
-                                                                    </a>
-                                                                </Button>
-                                                            )}
+                                                        {payrollStatementAvailable(
+                                                            payroll,
+                                                        ) && (
+                                                            <FileDownloadButton
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                title="給与明細PDF"
+                                                                iconOnly
+                                                                url={`/payrolls/${staff.staff_id}/statement?${outputQuery}`}
+                                                                label="給与明細PDF"
+                                                                fallbackFilename={`${year}年${String(month).padStart(2, '0')}月_${staff.name}_給与明細.pdf`}
+                                                            />
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -474,15 +458,13 @@ function PayrollCard(props: RowActions) {
                     <Calculator />
                     {props.calculating ? '計算中…' : '給与を再計算'}
                 </Button>
-                {payroll && !payroll.needs_recalculation && (
-                    <Button variant="outline" asChild>
-                        <a
-                            href={`/payrolls/${props.staff.staff_id}/statement?year=${props.year}&month=${props.month}`}
-                        >
-                            <Download />
-                            給与明細PDF
-                        </a>
-                    </Button>
+                {payrollStatementAvailable(payroll) && (
+                    <FileDownloadButton
+                        variant="outline"
+                        url={`/payrolls/${props.staff.staff_id}/statement?year=${props.year}&month=${props.month}`}
+                        label="給与明細PDF"
+                        fallbackFilename={`${props.year}年${String(props.month).padStart(2, '0')}月_${props.staff.name}_給与明細.pdf`}
+                    />
                 )}
             </div>
         </article>

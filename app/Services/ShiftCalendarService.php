@@ -109,7 +109,7 @@ class ShiftCalendarService
 
                     return [
                         'id' => $staff->id,
-                        'name' => $staff->name,
+                        'name' => $staff->preferred_name,
                         'employment_type' => $staff->employment_type->value,
                         'is_added' => $addedStaffIds->contains($staff->id),
                         'can_remove' => ! $assignedToContextStore,
@@ -142,10 +142,14 @@ class ShiftCalendarService
                                 );
                                 $conflictStore = $addedStaffIds->contains($staff->id)
                                     && $shift !== null
-                                    && ! in_array($shift->shift_type, [ShiftType::Off, ShiftType::Absence], true)
-                                    && $shift->store_id !== $store->id
-                                    ? $shift->store?->name
-                                    : null;
+                                    && (in_array($shift->shift_type, [ShiftType::Off, ShiftType::Absence], true)
+                                        || $shift->store_id !== $store->id)
+                                    ? match ($shift->shift_type) {
+                                        ShiftType::Off => '休み',
+                                        ShiftType::Absence => '急な休み',
+                                        default => $shift->store?->name,
+                                    }
+                                : null;
 
                                 return [
                                     'date' => $date,
@@ -211,7 +215,7 @@ class ShiftCalendarService
             ->get()
             ->map(fn (Staff $staff): array => [
                 'id' => $staff->id,
-                'name' => $staff->name,
+                'name' => $staff->preferred_name,
                 'employment_type' => $staff->employment_type->value,
                 'employment_type_label' => $staff->employment_type->label(),
                 'assignment_store_names' => array_values($staff->storeAssignments
@@ -298,7 +302,7 @@ class ShiftCalendarService
 
                     return [
                         'id' => $staff->id,
-                        'name' => $staff->name,
+                        'name' => $staff->preferred_name,
                         'employment_type' => $staff->employment_type->value,
                         'employment_type_label' => $staff->employment_type->label(),
                         'eligible' => $eligible,
@@ -363,7 +367,7 @@ class ShiftCalendarService
             ->get()
             ->map(fn (Staff $staff): array => [
                 'id' => $staff->id,
-                'name' => $staff->name,
+                'name' => $staff->preferred_name,
                 'employment_type' => $staff->employment_type->value,
                 'employment_type_label' => $staff->employment_type->label(),
                 'assignment_store_names' => array_values($staff->storeAssignments

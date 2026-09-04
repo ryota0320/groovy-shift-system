@@ -1,5 +1,6 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Download, FileSpreadsheet, Upload } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, Upload } from 'lucide-react';
+import FileDownloadButton from '@/components/file-download-button';
 import InputError from '@/components/input-error';
 import MasterPageHeader from '@/components/master-page-header';
 import { Button } from '@/components/ui/button';
@@ -81,6 +82,9 @@ export default function StaffImport() {
                                 スタッフキーは空欄で構いません。同じスタッフを複数行にする場合だけ同一キーを入力します。
                             </li>
                             <li>
+                                氏・名は必須、表示名は任意です。表示名が空欄の場合は氏名を表示します。
+                            </li>
+                            <li>
                                 日付はYYYY-MM-DD／YYYY/MM/DD／Excel日付セルに対応し、扶養人数の空欄は0人になります。
                             </li>
                             <li>内容を確認してアップロードします。</li>
@@ -88,16 +92,13 @@ export default function StaffImport() {
                         <div className="bg-muted/60 mt-4 rounded-lg p-3 text-xs leading-5">
                             新規登録専用です。同じファイルを再送するとスタッフが重複します。社員のログインアカウントは、移行後にスタッフ編集画面から必要な方だけ作成してください。
                         </div>
-                        <Button
+                        <FileDownloadButton
                             variant="outline"
                             className="mt-5 w-full"
-                            asChild
-                        >
-                            <a href="/staffs-import/template">
-                                <Download />
-                                Excelテンプレート
-                            </a>
-                        </Button>
+                            url="/staffs-import/template"
+                            label="Excelテンプレート"
+                            fallbackFilename="staff-initial-import-template.xlsx"
+                        />
                     </aside>
                 </div>
             </div>

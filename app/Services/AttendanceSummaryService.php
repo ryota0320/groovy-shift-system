@@ -20,11 +20,12 @@ class AttendanceSummaryService
                 $month->copy()->endOfMonth()->toDateString(),
             ])
             ->when($store !== null, fn ($query) => $query->where('attendance_records.store_id', $store->id))
-            ->groupBy('attendance_records.staff_id', 'staffs.name')
+            ->groupBy('attendance_records.staff_id', 'staffs.last_name', 'staffs.first_name')
             ->orderBy('attendance_records.staff_id')
             ->get([
                 'attendance_records.staff_id',
-                'staffs.name',
+                'staffs.last_name',
+                'staffs.first_name',
                 DB::raw('COUNT(*) AS attendance_days'),
                 DB::raw('SUM(attendance_records.working_minutes) AS working_minutes'),
             ])
@@ -33,7 +34,7 @@ class AttendanceSummaryService
 
                 return [
                     'staff_id' => (int) $values['staff_id'],
-                    'name' => (string) $values['name'],
+                    'name' => trim((string) $values['last_name'].' '.(string) $values['first_name']),
                     'attendance_days' => (int) $values['attendance_days'],
                     'working_minutes' => (int) $values['working_minutes'],
                 ];

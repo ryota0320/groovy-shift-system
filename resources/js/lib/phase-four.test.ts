@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
     payrollCardMetrics,
     payrollDisplayStatus,
+    payrollStatementAvailable,
     validCommissionAmount,
 } from '@/lib/payroll-presentation';
 import type { PayrollResult } from '@/types';
@@ -65,5 +66,19 @@ describe('Phase 4 payroll presentation', () => {
         expect(validCommissionAmount('0')).toBe(0);
         expect(validCommissionAmount('-1')).toBeNull();
         expect(validCommissionAmount('1.5')).toBeNull();
+    });
+
+    it('OUT-012: allows statement downloads only for current positive payrolls', () => {
+        expect(payrollStatementAvailable(payroll)).toBe(true);
+        expect(payrollStatementAvailable({ ...payroll, gross_pay: 0 })).toBe(
+            false,
+        );
+        expect(
+            payrollStatementAvailable({
+                ...payroll,
+                needs_recalculation: true,
+            }),
+        ).toBe(false);
+        expect(payrollStatementAvailable(null)).toBe(false);
     });
 });

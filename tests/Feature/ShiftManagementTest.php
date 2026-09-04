@@ -44,6 +44,20 @@ class ShiftManagementTest extends TestCase
         }
     }
 
+    public function test_shift_screens_prefer_the_staff_display_name(): void
+    {
+        [$admin, $store, $staff] = $this->shiftFixture();
+        $staff->update(['display_name' => 'りゅう']);
+
+        $this->actingAs($admin)
+            ->get(route('shifts.monthly', [
+                'store_id' => $store->id,
+                'month' => '2026-09',
+            ]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('staffs.0.name', 'りゅう'));
+    }
+
     public function test_whole_hours_from_opening_time_through_next_morning_are_accepted(): void
     {
         [$admin, $store, $staff] = $this->shiftFixture();
@@ -294,6 +308,158 @@ class ShiftManagementTest extends TestCase
             'shift_type' => 'time',
             'start_time' => '19:00',
         ]);
+    }
+
+    public function test_saving_an_added_staff_at_another_store_preserves_all_home_store_shifts(): void
+    {
+        [$admin, $homeStore, $staff] = $this->shiftFixture();
+        $homeStore->update(['name' => '46']);
+        $helpStore = Store::factory()->create(['name' => 'オニカイ']);
+
+        foreach ([
+            ['2026-09-01', 'early', null],
+            ['2026-09-02', 'time', '19:00'],
+        ] as [$date, $type, $startTime]) {
+            $this->actingAs($admin)
+                ->put(route('shifts.cell.save'), [
+                    'store_id' => $homeStore->id,
+                    'staff_id' => $staff->id,
+                    'shift_date' => $date,
+                    'shift_type' => $type,
+                    'start_time' => $startTime,
+                    'work_store_id' => $homeStore->id,
+                ])
+                ->assertSessionHasNoErrors();
+        }
+
+        $this->actingAs($admin)
+            ->post(route('shifts.monthly.staffs.store'), [
+                'store_id' => $helpStore->id,
+                'staff_id' => $staff->id,
+                'month' => '2026-09',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($admin)
+            ->put(route('shifts.cell.save'), [
+                'store_id' => $helpStore->id,
+                'staff_id' => $staff->id,
+                'shift_date' => '2026-09-03',
+                'shift_type' => 'time',
+                'start_time' => '20:00',
+                'work_store_id' => $helpStore->id,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('shifts', 3);
+        $this->assertTrue(Shift::query()
+            ->where('staff_id', $staff->id)
+            ->where('store_id', $homeStore->id)
+            ->whereDate('shift_date', '2026-09-01')
+            ->where('shift_type', 'early')
+            ->exists());
+        $this->assertTrue(Shift::query()
+            ->where('staff_id', $staff->id)
+            ->where('store_id', $homeStore->id)
+            ->whereDate('shift_date', '2026-09-02')
+            ->where('shift_type', 'time')
+            ->where('start_time', '19:00')
+            ->exists());
+
+        $this->actingAs($admin)
+            ->get(route('shifts.monthly', [
+                'store_id' => $homeStore->id,
+                'month' => '2026-09',
+            ]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('staffs.0.cells.0.shift_type', 'early')
+                ->where('staffs.0.cells.0.store_id', $homeStore->id)
+                ->where('staffs.0.cells.1.shift_type', 'time')
+                ->where('staffs.0.cells.1.start_time', '19:00')
+                ->where('staffs.0.cells.2.shift_type', 'help')
+                ->where('staffs.0.cells.2.store_id', $helpStore->id)
+                ->where('staffs.0.cells.2.display', 'オニカイ'));
+    }
+
+    public function test_added_staff_cell_becomes_editable_after_the_home_store_shift_is_cleared(): void
+    {
+        [$admin, $homeStore, $staff] = $this->shiftFixture();
+        $homeStore->update(['name' => 'A店舗']);
+        $helpStore = Store::factory()->create(['name' => 'B店舗']);
+
+        $this->actingAs($admin)
+            ->put(route('shifts.cell.save'), [
+                'store_id' => $homeStore->id,
+                'staff_id' => $staff->id,
+                'shift_date' => '2026-09-01',
+                'shift_type' => 'time',
+                'start_time' => '19:00',
+                'work_store_id' => $homeStore->id,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($admin)
+            ->post(route('shifts.monthly.staffs.store'), [
+                'store_id' => $helpStore->id,
+                'staff_id' => $staff->id,
+                'month' => '2026-09',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($admin)
+            ->get(route('shifts.monthly', [
+                'store_id' => $helpStore->id,
+                'month' => '2026-09',
+            ]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('staffs.0.cells.0.editable', false)
+                ->where('staffs.0.cells.0.conflict_store', 'A店舗'));
+
+        $this->actingAs($admin)
+            ->put(route('shifts.cell.save'), [
+                'store_id' => $homeStore->id,
+                'staff_id' => $staff->id,
+                'shift_date' => '2026-09-01',
+                'shift_type' => null,
+                'start_time' => null,
+                'work_store_id' => null,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertFalse(Shift::query()
+            ->where('staff_id', $staff->id)
+            ->whereDate('shift_date', '2026-09-01')
+            ->exists());
+        $this->actingAs($admin)
+            ->get(route('shifts.monthly', [
+                'store_id' => $helpStore->id,
+                'month' => '2026-09',
+            ]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('staffs.0.cells.0.shift_type', null)
+                ->where('staffs.0.cells.0.editable', true)
+                ->where('staffs.0.cells.0.conflict_store', null));
+
+        $this->actingAs($admin)
+            ->put(route('shifts.cell.save'), [
+                'store_id' => $homeStore->id,
+                'staff_id' => $staff->id,
+                'shift_date' => '2026-09-01',
+                'shift_type' => 'off',
+                'start_time' => null,
+                'work_store_id' => null,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($admin)
+            ->get(route('shifts.monthly', [
+                'store_id' => $helpStore->id,
+                'month' => '2026-09',
+            ]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('staffs.0.cells.0.shift_type', 'off')
+                ->where('staffs.0.cells.0.editable', false)
+                ->where('staffs.0.cells.0.conflict_store', '休み'));
     }
 
     public function test_other_store_help_rejects_the_context_store(): void
@@ -1029,6 +1195,13 @@ class ShiftManagementTest extends TestCase
             'shift_type' => 'time',
             'start_time' => '20:00',
         ]);
+        Shift::query()->create([
+            'staff_id' => $helpStaff->id,
+            'store_id' => null,
+            'shift_date' => '2026-09-04',
+            'shift_type' => 'off',
+            'start_time' => null,
+        ]);
         $this->actingAs($admin)
             ->get(route('shifts.monthly', [
                 'store_id' => $targetStore->id,
@@ -1038,8 +1211,8 @@ class ShiftManagementTest extends TestCase
                 ->where('staffs.0.id', $helpStaff->id)
                 ->where('staffs.0.cells.2.editable', false)
                 ->where('staffs.0.cells.2.conflict_store', $homeStore->name)
-                ->where('staffs.0.cells.3.editable', true)
-                ->where('staffs.0.cells.3.conflict_store', null)
+                ->where('staffs.0.cells.3.editable', false)
+                ->where('staffs.0.cells.3.conflict_store', '休み')
                 ->where('staffs.1.id', $assignedStaff->id));
 
         $this->actingAs($admin)
@@ -1068,9 +1241,16 @@ class ShiftManagementTest extends TestCase
             'staff_id' => $helpStaff->id,
             'shift_date' => '2026-09-01 00:00:00',
         ]);
-        $this->assertDatabaseMissing('shifts', [
+        $this->assertDatabaseHas('shifts', [
             'staff_id' => $helpStaff->id,
             'shift_date' => '2026-09-03 00:00:00',
+            'store_id' => $homeStore->id,
+        ]);
+        $this->assertDatabaseHas('shifts', [
+            'staff_id' => $helpStaff->id,
+            'shift_date' => '2026-09-04 00:00:00',
+            'store_id' => null,
+            'shift_type' => 'off',
         ]);
         $this->actingAs($admin)
             ->get(route('shifts.monthly', [
@@ -1096,7 +1276,7 @@ class ShiftManagementTest extends TestCase
         ]);
     }
 
-    public function test_non_assigned_staff_with_existing_shifts_can_be_removed_without_an_addition(): void
+    public function test_non_assigned_staff_with_existing_shifts_can_be_removed_without_an_addition_while_other_store_shifts_are_preserved(): void
     {
         $admin = User::factory()->create();
         $targetStore = Store::factory()->create(['name' => '表示店舗']);
@@ -1137,9 +1317,10 @@ class ShiftManagementTest extends TestCase
             'staff_id' => $staff->id,
             'shift_date' => '2026-09-01 00:00:00',
         ]);
-        $this->assertDatabaseMissing('shifts', [
+        $this->assertDatabaseHas('shifts', [
             'staff_id' => $staff->id,
             'shift_date' => '2026-09-02 00:00:00',
+            'store_id' => $homeStore->id,
         ]);
         $this->actingAs($admin)
             ->get(route('shifts.monthly', [

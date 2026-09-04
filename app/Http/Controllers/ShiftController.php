@@ -267,7 +267,7 @@ class ShiftController extends Controller
             ]);
         });
 
-        return $this->success("{$staff->name}さんを月間シフトの末尾へ追加しました。");
+        return $this->success("{$staff->preferred_name}さんを月間シフトの末尾へ追加しました。");
     }
 
     public function removeMonthlyStaff(MonthlyShiftStaffRequest $request): RedirectResponse
@@ -301,6 +301,7 @@ class ShiftController extends Controller
                 ->first();
             $shiftQuery = Shift::query()
                 ->where('staff_id', $staff->id)
+                ->where('store_id', $store->id)
                 ->whereBetween('shift_date', [
                     $periodStart->toDateString(),
                     $periodEnd->toDateString(),
@@ -319,7 +320,7 @@ class ShiftController extends Controller
             return $deletedShiftCount;
         });
 
-        return $this->success("{$staff->name}さんを対象月の一覧から削除し、登録済みシフト{$deletedShiftCount}件を削除しました。");
+        return $this->success("{$staff->preferred_name}さんを対象月の一覧から削除し、この店舗の登録済みシフト{$deletedShiftCount}件を削除しました。");
     }
 
     /** @return list<array{id: int, name: string, opening_time: string, closing_time: string, is_active: bool}> */

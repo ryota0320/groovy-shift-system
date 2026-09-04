@@ -16,11 +16,12 @@ use App\Services\MonthlyAggregationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
 use ZipArchive;
 
-/** Covers AGG-001 through AGG-006, OUT-002 through OUT-007 and OUT-009. */
+/** Covers AGG-001 through AGG-006, OUT-002 through OUT-007, OUT-009 and OUT-011. */
 class PhaseFiveOutputTest extends TestCase
 {
     use RefreshDatabase;
@@ -70,8 +71,8 @@ class PhaseFiveOutputTest extends TestCase
     public function test_xlsx_uses_the_shared_report_and_contains_required_sheets(): void
     {
         $admin = User::factory()->create();
-        $store = Store::factory()->create(['name' => 'XLSX店舗']);
-        $staff = Staff::factory()->partTime()->create(['name' => '出力 花子', 'hired_at' => '2026-01-01']);
+        $store = Store::factory()->create(['name' => '=XLSX店舗']);
+        $staff = Staff::factory()->partTime()->create(['name' => '+出力 花子', 'hired_at' => '2026-01-01']);
         StaffWageRate::query()->create([
             'staff_id' => $staff->id,
             'hourly_wage' => 1200,
@@ -87,6 +88,11 @@ class PhaseFiveOutputTest extends TestCase
             $this->assertSame(['店舗別月次集計', '全店舗横断集計'], $spreadsheet->getSheetNames());
             $this->assertSame('6時間30分', $spreadsheet->getSheetByName('店舗別月次集計')?->getCell('D5')->getValue());
             $this->assertSame(7800, $spreadsheet->getSheetByName('店舗別月次集計')?->getCell('F5')->getValue());
+            $this->assertSame(DataType::TYPE_STRING, $spreadsheet->getSheetByName('店舗別月次集計')?->getCell('B2')->getDataType());
+            $this->assertSame('=XLSX店舗', $spreadsheet->getSheetByName('店舗別月次集計')?->getCell('B2')->getValue());
+            $this->assertSame(DataType::TYPE_STRING, $spreadsheet->getSheetByName('店舗別月次集計')?->getCell('A5')->getDataType());
+            $this->assertSame('+出力 花子', $spreadsheet->getSheetByName('店舗別月次集計')?->getCell('A5')->getValue());
+            $this->assertSame(DataType::TYPE_STRING, $spreadsheet->getSheetByName('全店舗横断集計')?->getCell('D3')->getDataType());
             $spreadsheet->disconnectWorksheets();
         } finally {
             @unlink($path);
@@ -102,10 +108,25 @@ class PhaseFiveOutputTest extends TestCase
     public function test_individual_pdf_and_bulk_zip_use_only_current_saved_payrolls(): void
     {
         $admin = User::factory()->create();
-        $first = Staff::factory()->partTime()->create(['name' => '明細 花子', 'hired_at' => '2026-01-01']);
+        $first = Staff::factory()->partTime()->create([
+            'name' => '明細 花子',
+            'display_name' => 'はなちゃん',
+            'hired_at' => '2026-01-01',
+        ]);
         $second = Staff::factory()->partTime()->create(['name' => '明細 次郎', 'hired_at' => '2026-01-01']);
+        $zero = Staff::factory()->partTime()->create(['name' => '支給 零', 'hired_at' => '2026-01-01']);
+        Staff::factory()->partTime()->create(['name' => '未計算 三郎', 'hired_at' => '2026-01-01']);
         $firstPayroll = $this->payroll($first);
         $this->payroll($second);
+        $this->payroll($zero)->update(['gross_pay' => 0, 'net_pay' => 0]);
+
+        $statementHtml = view('pdf.payroll-statement', [
+            'payroll' => $firstPayroll->load('staff'),
+            'attendanceDays' => 0,
+            'fontFamily' => 'sans-serif',
+        ])->render();
+        $this->assertStringContainsString('氏名：明細 花子 様', $statementHtml);
+        $this->assertStringNotContainsString('はなちゃん', $statementHtml);
 
         $pdfResponse = $this->actingAs($admin)->get(route('payrolls.statement', [
             'staff' => $first,
@@ -116,6 +137,12 @@ class PhaseFiveOutputTest extends TestCase
             ->assertHeader('content-type', 'application/pdf');
         $this->assertUtf8DownloadName($pdfResponse->headers->get('content-disposition'), '2026年09月_明細 花子_給与明細.pdf');
         $this->assertStringStartsWith('%PDF-', $pdfResponse->getContent());
+
+        $this->from(route('payrolls.index'))
+            ->actingAs($admin)
+            ->get(route('payrolls.statement', ['staff' => $zero, 'year' => 2026, 'month' => 9]))
+            ->assertRedirect(route('payrolls.index'))
+            ->assertSessionHasErrors('payroll');
 
         $zipResponse = $this->actingAs($admin)->get(route('payrolls.statements.bulk', [
             'year' => 2026,
@@ -130,6 +157,7 @@ class PhaseFiveOutputTest extends TestCase
             $this->assertSame(2, $zip->numFiles);
             $this->assertNotFalse($zip->locateName('2026年09月_明細 花子_給与明細.pdf'));
             $this->assertNotFalse($zip->locateName('2026年09月_明細 次郎_給与明細.pdf'));
+            $this->assertFalse($zip->locateName('2026年09月_支給 零_給与明細.pdf'));
             $zip->close();
         } finally {
             @unlink($path);

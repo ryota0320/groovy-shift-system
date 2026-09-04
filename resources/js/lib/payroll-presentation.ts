@@ -55,6 +55,11 @@ export const payrollDisplayStatus = (
     return payroll.needs_recalculation ? 'needs_recalculation' : 'calculated';
 };
 
+export const payrollStatementAvailable = (
+    payroll: PayrollResult | null,
+): payroll is PayrollResult =>
+    payroll !== null && payroll.gross_pay > 0 && !payroll.needs_recalculation;
+
 export const validCommissionAmount = (value: string): number | null => {
     const amount = Number(value);
 

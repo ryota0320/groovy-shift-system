@@ -16,13 +16,13 @@ class ShiftMasterDataGuard
         $shift = Shift::query()
             ->where('store_id', $store->id)
             ->whereDate('shift_date', $holidayDate)
-            ->with('staff:id,name')
+            ->with('staff:id,name,last_name,first_name,display_name')
             ->lockForUpdate()
             ->first();
 
         if ($shift !== null) {
             throw ValidationException::withMessages([
-                'holiday_date' => "{$shift->staff->name}さんのシフトが登録済みです。先に対象日のシフトを解除してください。",
+                'holiday_date' => "{$shift->staff->preferred_name}さんのシフトが登録済みです。先に対象日のシフトを解除してください。",
             ]);
         }
     }

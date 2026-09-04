@@ -43,6 +43,9 @@ export type StaffIncomeTaxSetting = EffectivePeriod & {
 export type StaffMaster = {
     id: number;
     name: string;
+    last_name: string;
+    first_name: string;
+    display_name: string | null;
     employment_type: 'employee' | 'part_time';
     employment_type_label: string;
     hired_at: string | null;

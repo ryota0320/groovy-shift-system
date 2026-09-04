@@ -19,7 +19,7 @@ class ShiftPngController extends Controller
         ]);
         $store = Store::query()->findOrFail((int) $validated['store_id']);
         $month = Carbon::createFromFormat('!Y-m', $validated['month']);
-        $safeStoreName = preg_replace('/[\\\\\/:*?"<>|]/u', '', $store->name) ?: '店舗';
+        $safeStoreName = preg_replace('/[\\\\\/:*?"<>|\x00-\x1F\x7F]/u', '', $store->name) ?: '店舗';
         $filename = sprintf('%d年%02d月_%s_シフト.png', $month->year, $month->month, $safeStoreName);
 
         return response($png->render($store, $month), 200, [

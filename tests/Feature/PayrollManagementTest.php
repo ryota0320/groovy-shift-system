@@ -22,11 +22,12 @@ use App\Services\PayrollCalculationService;
 use Database\Seeders\IncomeTaxTableSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
-/** Covers PAY-001 through PAY-016 and TAX-001 through TAX-015. */
+/** Covers PAY-001 through PAY-016, TAX-001 through TAX-015 and PERF-001. */
 class PayrollManagementTest extends TestCase
 {
     use RefreshDatabase;
@@ -573,6 +574,42 @@ class PayrollManagementTest extends TestCase
             ])
             ->assertSessionHasNoErrors();
         $this->assertTrue($payroll->fresh()->needs_recalculation);
+    }
+
+    public function test_payroll_rate_queries_do_not_increase_with_attendance_days(): void
+    {
+        $this->seed(IncomeTaxTableSeeder::class);
+        $staff = Staff::factory()->partTime()->create(['hired_at' => '2026-01-01']);
+        $store = Store::factory()->create();
+        StaffWageRate::query()->create([
+            'staff_id' => $staff->id,
+            'hourly_wage' => 1261,
+            'effective_from' => '2026-01-01',
+            'effective_to' => null,
+        ]);
+        $this->taxSetting($staff, IncomeTaxCategory::Ko, 0);
+
+        foreach (range(1, 20) as $day) {
+            $this->attendance(
+                $staff,
+                $store,
+                sprintf('2026-09-%02d', $day),
+                60,
+                0,
+            );
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        app(PayrollCalculationService::class)->calculate($staff, 2026, 9);
+        $queryCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertLessThanOrEqual(
+            16,
+            $queryCount,
+            "20日分の給与計算で{$queryCount}件のクエリが発行されました。",
+        );
     }
 
     private function attendance(

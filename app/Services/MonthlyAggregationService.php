@@ -22,7 +22,7 @@ class MonthlyAggregationService
         $end = $start->copy()->endOfMonth();
         $attendances = AttendanceRecord::query()
             ->whereBetween('work_date', [$start->toDateString(), $end->toDateString()])
-            ->with(['staff:id,name,employment_type', 'store:id,name'])
+            ->with(['staff:id,name,last_name,first_name,employment_type', 'store:id,name'])
             ->orderBy('work_date')
             ->orderBy('staff_id')
             ->get();

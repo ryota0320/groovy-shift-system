@@ -83,7 +83,7 @@ class AttendanceCalendarService
 
             return [
                 'staff_id' => $staff->id,
-                'name' => $staff->name,
+                'name' => $staff->preferred_name,
                 'employment_type' => $staff->employment_type->value,
                 'employment_type_label' => $staff->employment_type->label(),
                 'source' => $source,
@@ -145,7 +145,7 @@ class AttendanceCalendarService
             ->get()
             ->map(fn (Staff $staff): array => [
                 'id' => $staff->id,
-                'name' => $staff->name,
+                'name' => $staff->preferred_name,
                 'employment_type' => $staff->employment_type->value,
                 'employment_type_label' => $staff->employment_type->label(),
                 'assignment_store_names' => array_values($staff->storeAssignments

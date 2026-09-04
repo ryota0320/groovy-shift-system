@@ -92,20 +92,26 @@ stores 1 ── * store_holidays
 
 ### 5.1 staffs
 
-| カラム              | 概要                     |
-| ------------------- | ------------------------ |
-| id                  | 主キー                   |
-| name                | 氏名                     |
-| employment_type     | `employee` / `part_time` |
-| hired_at nullable   | 入社日                   |
-| retired_at nullable | 退職日。当日まで在籍     |
-| timestamps          | 作成・更新日時           |
+| カラム                | 概要                                             |
+| --------------------- | ------------------------------------------------ |
+| id                    | 主キー                                           |
+| name                  | 旧実装互換用の氏名。氏・半角スペース・名から同期 |
+| last_name             | 氏                                               |
+| first_name            | 名                                               |
+| display_name nullable | シフト・勤怠等で使う任意の表示名                 |
+| employment_type       | `employee` / `part_time`                         |
+| hired_at nullable     | 入社日                                           |
+| retired_at nullable   | 退職日。当日まで在籍                             |
+| timestamps            | 作成・更新日時                                   |
 
 `employment_status`、現在時給、現在税区分、現在扶養人数は保持しない。在籍状態と現在設定は日付・履歴テーブルから導出する。
+
+正式氏名は`last_name + 半角スペース + first_name`とする。シフト・勤怠等の業務画面では`display_name`を優先し、未設定時は正式氏名を使用する。給与明細、給与一覧、集計帳票では常に正式氏名を使用する。
 
 検証:
 
 - `hired_at`と`retired_at`が両方ある場合、`hired_at <= retired_at`
+- `last_name`と`first_name`はアプリケーション上必須
 
 ### 5.2 staff_store_assignments
 
