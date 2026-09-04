@@ -28,7 +28,7 @@ PHP GD - PHPUnit / Vitest
 
 ## 2. Excelから抽出した業務構造
 
-``` text
+```text
 日次売上 ─┐
 勤怠給与 ─┼→ 日次KPI/FL → 月次PL
 仕入 ─────┤
@@ -40,18 +40,18 @@ Excelの壊れた参照、`#REF!`、`#DIV/0!`、不自然なセル参照は再�
 
 ## 3. 確定した会計・KPI方針
 
--   売上は税込管理。
--   初期版PL、人件費率、原価率、FL率の分母も税込売上。
--   初期版のFは「食材仕入+ドリンク仕入」の簡易原価。棚卸を含む正式売上原価は将来拡張。
--   Lはアルバイト人件費+社員人件費。
--   アルバイト人件費は既存勤怠から自動取得。
--   社員人件費は店舗×月で総額を手入力。
--   社員人件費は店舗営業日数で均等配賦し日別FLへ加算。
--   店舗別PLと全店舗合算PLの両方を出す。
--   店舗間移動は全店舗PLで二重計上しない。
--   歩合は給与計算には含めるが、日次FL・月次PLのLには含めない。給与支給額と経営管理上のLが一致しない場合があることは意図した仕様とする。
--   初期目標:
-    人件費20%、食材13%、ドリンク7%、F20%、FL40%。店舗×適用期間で変更可能。
+- 売上は税込管理。
+- 初期版PL、人件費率、原価率、FL率の分母も税込売上。
+- 初期版のFは「食材仕入+ドリンク仕入」の簡易原価。棚卸を含む正式売上原価は将来拡張。
+- Lはアルバイト人件費+社員人件費。
+- アルバイト人件費は既存勤怠から自動取得。
+- 社員人件費は店舗×月で総額を手入力。
+- 社員人件費は店舗営業日数で均等配賦し日別FLへ加算。
+- 店舗別PLと全店舗合算PLの両方を出す。
+- 店舗間移動は全店舗PLで二重計上しない。
+- 歩合は給与計算には含めるが、日次FL・月次PLのLには含めない。給与支給額と経営管理上のLが一致しない場合があることは意図した仕様とする。
+- 初期目標:
+  人件費20%、食材13%、ドリンク7%、F20%、FL40%。店舗×適用期間で変更可能。
 
 社員人件費日割りは月額との整合を必ず保つ。例:
 `base=floor(月額/営業日数)`、余りを営業日の先頭から1円ずつ配賦し、日別合計=月額とする。
@@ -90,7 +90,7 @@ employeeが他社員について閲覧可: - 氏名、所属、シフト、勤�
 
 ## 5. 新規ドメイン境界
 
-``` text
+```text
 既存 Workforce
 Shift / Attendance / Payroll / Labor Aggregation
              │ store_id / business_date / month
@@ -275,7 +275,7 @@ FとFLはFood+Drink、F+Lから算出してもよく、重複保存を避ける�
 
 日次L:
 
-``` text
+```text
 既存アルバイト日別人件費
 + 日割り社員人件費
 ```
@@ -289,7 +289,7 @@ FとFLはFood+Drink、F+Lから算出してもよく、重複保存を避ける�
 
 初期版:
 
-``` text
+```text
 food_cost = 当日食材仕入 ± 店舗間移動
 drink_cost = 当日ドリンク仕入 ± 店舗間移動
 F = food_cost + drink_cost
@@ -301,7 +301,7 @@ F = food_cost + drink_cost
 
 売上\>0の場合:
 
-``` text
+```text
 labor_cost_rate = L / gross_sales * 100
 food_cost_rate = food_cost / gross_sales * 100
 drink_cost_rate = drink_cost / gross_sales * 100
@@ -314,7 +314,7 @@ FL_rate = FL_amount / gross_sales * 100
 
 目標差額:
 
-``` text
+```text
 target_labor_amount = floor(sales * labor_target / 100)
 labor_variance = target_labor_amount - actual_L
 
@@ -350,7 +350,7 @@ F率 - FL率 - 目標との差 - 月間経費 - 当月累計営業利益
 
 初期版では予測計算を行わない。当月累計営業利益は次で算出する。
 
-``` text
+```text
 現在営業日までの売上
 - 現在営業日までのF
 - 現在営業日までのアルバイト人件費
@@ -372,7 +372,7 @@ F率 - FL率 - 目標との差 - 月間経費 - 当月累計営業利益
 
 初期版の基本構造:
 
-``` text
+```text
 税込売上
 - 食材仕入原価
 - ドリンク仕入原価
@@ -399,12 +399,12 @@ Excel独自のFLR/FLRA等は初期版では必須としない。現在実際に�
 
 同年月について、現在有効な店舗、または対象月に実績が存在する店舗を合算する。無効店舗でも対象月に実績があれば過去の全店舗PLへ含める。
 
--   全店舗売上
--   F
--   L
--   経費
--   営業利益
--   各率
+- 全店舗売上
+- F
+- L
+- 経費
+- 営業利益
+- 各率
 
 店舗間移動は相殺する。
 単純に店舗別移動込みFを足して会社全体Fを二重計上しない。
@@ -449,7 +449,7 @@ modelとして利用するが、Management Accountingの中心Serviceにしな�
 
 既存`biz`認証を新ロール仕様へ更新した上で、例:
 
-``` text
+```text
 GET/PUT /management/sales/daily
 GET     /management/sales/monthly
 GET/POST/PUT /management/suppliers
@@ -472,7 +472,7 @@ URLはWayfinder/Laravel慣例に合わせ調整可。
 
 ## 29. React/Inertia Page案
 
-``` text
+```text
 resources/js/pages/management/
   dashboard.tsx
   sales/daily.tsx
@@ -501,55 +501,55 @@ developer/owner/employeeすべて表示。 開発メニューはdeveloperのみ�
 
 ### 売上
 
--   store必須
--   business_date必須
--   customer_count\>=0
--   決済金額\>=0整数
--   店舗×営業日unique
--   gross_salesはサーバーで決済合計から算出
--   店休日は`holiday_confirmed`相当の確認値がある場合だけ保存可
+- store必須
+- business_date必須
+- customer_count\>=0
+- 決済金額\>=0整数
+- 店舗×営業日unique
+- gross_salesはサーバーで決済合計から算出
+- 店休日は`holiday_confirmed`相当の確認値がある場合だけ保存可
 
 ### 仕入
 
--   store/date/category/amount必須
--   amount\>=0
--   supplierは任意
--   支払方法enum
--   店休日は`holiday_confirmed`相当の確認値がある場合だけ保存可
+- store/date/category/amount必須
+- amount\>=0
+- supplierは任意
+- 支払方法enum
+- 店休日は`holiday_confirmed`相当の確認値がある場合だけ保存可
 
 ### 店舗間移動
 
--   from/to必須
--   from != to
--   amount\>0
--   category必須
+- from/to必須
+- from != to
+- amount\>0
+- category必須
 
 ### 経費
 
--   store/date/category/amount必須
--   amount\>=0
--   支払方法enum
--   店休日は`holiday_confirmed`相当の確認値がある場合だけ保存可
+- store/date/category/amount必須
+- amount\>=0
+- 支払方法enum
+- 店休日は`holiday_confirmed`相当の確認値がある場合だけ保存可
 
 ### 社員人件費
 
--   store/year/month必須
--   amount\>=0
--   unique(store,year,month)
+- store/year/month必須
+- amount\>=0
+- unique(store,year,month)
 
 ### 目標
 
--   各率0〜100
--   各率decimal(5,2)
--   effective_from\<=effective_to
--   同一店舗の適用期間重複を禁止
+- 各率0〜100
+- 各率decimal(5,2)
+- effective_from\<=effective_to
+- 同一店舗の適用期間重複を禁止
 
 ### 固定費
 
--   amount\>=0
--   effective_from/effective_toは年月入力を各月1日のdateへ正規化
--   対象月1日時点で有効な設定だけを月次PLへ加算
--   同一店舗・同一固定費の適用期間重複を禁止
+- amount\>=0
+- effective_from/effective_toは年月入力を各月1日のdateへ正規化
+- 対象月1日時点で有効な設定だけを月次PLへ加算
+- 同一店舗・同一固定費の適用期間重複を禁止
 
 フロントだけに依存せずLaravel側で保証。
 
@@ -560,7 +560,7 @@ Transaction対象: - 日次売上+決済内訳保存 - 店舗間移動 -
 
 ## 33. Index/Unique推奨
 
-``` text
+```text
 daily_sales unique(store_id,business_date)
 daily_sales_payments unique(daily_sale_id,payment_method_id)
 purchases index(store_id,business_date)
@@ -602,7 +602,7 @@ Excelの`#DIV/0!`を再現しない。
 
 画面ごとに計算式を実装しない。
 
-``` text
+```text
 DB入力
  ↓
 Sales/Purchase/Expense/Labor Services
@@ -625,13 +625,13 @@ AB人件費 - 社員人件費
 
 ## 39. セキュリティ
 
--   全経営画面認証必須
--   CSRF/XSS/SQL Injectionは既存標準対策
--   権限はLaravel側で強制
--   employeeに他社員個人センシティブ情報を返すInertia
-    props/APIを作らない
--   developer専用情報はowner/employeeへ送信自体しない
--   XLSX等のダウンロードも認可する
+- 全経営画面認証必須
+- CSRF/XSS/SQL Injectionは既存標準対策
+- 権限はLaravel側で強制
+- employeeに他社員個人センシティブ情報を返すInertia
+  props/APIを作らない
+- developer専用情報はowner/employeeへ送信自体しない
+- XLSX等のダウンロードも認可する
 
 ## 40. 既存システムへの影響
 
@@ -668,73 +668,73 @@ expense_categories - 初期management targets
 
 ### 売上
 
--   決済合計=売上
--   客単価
--   客数0
--   未入力と0円売上の区別
--   平均日商は売上入力済み日数で除算
--   現在月の未来日を未入力件数へ含めない
--   店舗×日unique
--   月次合計
--   店休日の確認なし拒否/確認後保存
+- 決済合計=売上
+- 客単価
+- 客数0
+- 未入力と0円売上の区別
+- 平均日商は売上入力済み日数で除算
+- 現在月の未来日を未入力件数へ含めない
+- 店舗×日unique
+- 月次合計
+- 店休日の確認なし拒否/確認後保存
 
 ### 仕入
 
--   区分別
--   仕入先別
--   現金仕入
--   その他仕入をFから除外しPL費用へ含める
--   店舗間移動
--   全店舗で内部移動相殺
+- 区分別
+- 仕入先別
+- 現金仕入
+- その他仕入をFから除外しPL費用へ含める
+- 店舗間移動
+- 全店舗で内部移動相殺
 
 ### 経費
 
--   科目別
--   支払方法別
--   現金経費
--   固定費適用期間
--   固定費をexpensesへ自動生成しない
--   対象月1日時点の固定費を全額計上
+- 科目別
+- 支払方法別
+- 現金経費
+- 固定費適用期間
+- 固定費をexpensesへ自動生成しない
+- 対象月1日時点の固定費を全額計上
 
 ### 社員人件費
 
--   店舗×月
--   営業日均等配賦
--   端数配賦
--   日別合計=月額
--   営業日0日は日次0円、月次全額、警告表示
+- 店舗×月
+- 営業日均等配賦
+- 端数配賦
+- 日別合計=月額
+- 営業日0日は日次0円、月次全額、警告表示
 
 ### KPI
 
--   L率
--   food率
--   drink率
--   F率
--   FL率
--   目標差
--   目標金額floorと率小数第2位表示
--   売上0でnull
--   店休日
+- L率
+- food率
+- drink率
+- F率
+- FL率
+- 目標差
+- 目標金額floorと率小数第2位表示
+- 売上0でnull
+- 店休日
 
 ### PL
 
--   店舗別
--   全店舗
--   内部移動消去
--   経費科目
--   営業利益
--   歩合を日次/月次Lから除外
--   無効店舗でも対象月実績があれば店舗別/全店舗PLへ含める
--   当月累計営業利益は予測せず確定式どおり算出
+- 店舗別
+- 全店舗
+- 内部移動消去
+- 経費科目
+- 営業利益
+- 歩合を日次/月次Lから除外
+- 無効店舗でも対象月実績があれば店舗別/全店舗PLへ含める
+- 当月累計営業利益は予測せず確定式どおり算出
 
 ### 権限
 
--   developer全許可
--   owner開発機能拒否
--   employee開発機能拒否
--   employeeアルバイト給与閲覧可
--   employee他社員個人センシティブ情報拒否
--   employee店舗社員人件費合計/PL閲覧可
+- developer全許可
+- owner開発機能拒否
+- employee開発機能拒否
+- employeeアルバイト給与閲覧可
+- employee他社員個人センシティブ情報拒否
+- employee店舗社員人件費合計/PL閲覧可
 
 ## 44. 対象外
 
@@ -825,25 +825,25 @@ POS自動連携 - 会計ソフト連携 - 銀行/カード自動連携 - 消費�
 
 ## 46. 完了条件
 
--   3店舗および将来追加店舗で利用可能
--   日次税込売上/客数/決済別売上を入力可能
--   客単価、平均日商等を自動算出
--   仕入先/仕入区分/仕入を管理
--   店舗間移動を管理し全店舗PLで相殺
--   経費/固定費を管理
--   店舗×月社員人件費を入力し営業日へ正しく配賦
--   既存AB人件費と社員人件費からLを算出
--   食材/ドリンク仕入から簡易Fを算出
--   日別/月次のF/L/FLと目標差を表示
--   店舗別PLを表示
--   全店舗合算PLを表示
--   現金増減を表示
--   developer/owner/employeeの権限が仕様通り
--   employeeはアルバイト情報を全て扱える
--   employeeは他社員個人センシティブ情報を取得できない
--   XLSX出力可能
--   スマホ/タブレットで主要入力・閲覧可能
--   主要Unit/Feature Testが成功
+- 3店舗および将来追加店舗で利用可能
+- 日次税込売上/客数/決済別売上を入力可能
+- 客単価、平均日商等を自動算出
+- 仕入先/仕入区分/仕入を管理
+- 店舗間移動を管理し全店舗PLで相殺
+- 経費/固定費を管理
+- 店舗×月社員人件費を入力し営業日へ正しく配賦
+- 既存AB人件費と社員人件費からLを算出
+- 食材/ドリンク仕入から簡易Fを算出
+- 日別/月次のF/L/FLと目標差を表示
+- 店舗別PLを表示
+- 全店舗合算PLを表示
+- 現金増減を表示
+- developer/owner/employeeの権限が仕様通り
+- employeeはアルバイト情報を全て扱える
+- employeeは他社員個人センシティブ情報を取得できない
+- XLSX出力可能
+- スマホ/タブレットで主要入力・閲覧可能
+- 主要Unit/Feature Testが成功
 
 ## 47. Codexへの注意
 

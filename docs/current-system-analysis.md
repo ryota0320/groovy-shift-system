@@ -10,21 +10,21 @@
 
 ## 1. 技術スタック
 
-| 区分 | 現状 |
-|---|---|
-| バックエンド | PHP 8.4（Docker実測 8.4.25）、Laravel Framework 13.30.1 |
-| フロントエンド | React 19.2.8、TypeScript 5.9.3、Inertia.js 3.7.0 |
-| CSS/UI | Tailwind CSS 4.3.3、Radix UI、Lucide React、Sonner、class-variance-authority |
-| DB | MySQL 8.4（稼働コンテナ実測 8.4.8） |
-| Node | Docker Node 22.23.2、npm 10.9.8 |
-| ビルド/検査 | Vite 8.2.2、Vite Plus 0.3.0、TypeScript、ESLint相当の`vp check` |
-| 認証 | Laravel Fortify 1.39.0、セッション認証、メール確認、パスワード再設定、2FA、Passkey |
-| PDF | `dompdf/dompdf` 3.1.6、IPAゴシック |
-| Excel | `phpoffice/phpspreadsheet` 5.9.0 |
-| PNG | PHP GD + FreeTypeによるサーバー描画 |
-| テスト | PHPUnit 12.5.34、Vitest（Vite Plus経由） |
-| 静的解析/整形 | Larastan 3.11.0、Laravel Pint 1.30.5 |
-| ルート型生成 | Laravel Wayfinder 0.1.21 / Vite plugin 0.1.10 |
+| 区分           | 現状                                                                               |
+| -------------- | ---------------------------------------------------------------------------------- |
+| バックエンド   | PHP 8.4（Docker実測 8.4.25）、Laravel Framework 13.30.1                            |
+| フロントエンド | React 19.2.8、TypeScript 5.9.3、Inertia.js 3.7.0                                   |
+| CSS/UI         | Tailwind CSS 4.3.3、Radix UI、Lucide React、Sonner、class-variance-authority       |
+| DB             | MySQL 8.4（稼働コンテナ実測 8.4.8）                                                |
+| Node           | Docker Node 22.23.2、npm 10.9.8                                                    |
+| ビルド/検査    | Vite 8.2.2、Vite Plus 0.3.0、TypeScript、ESLint相当の`vp check`                    |
+| 認証           | Laravel Fortify 1.39.0、セッション認証、メール確認、パスワード再設定、2FA、Passkey |
+| PDF            | `dompdf/dompdf` 3.1.6、IPAゴシック                                                 |
+| Excel          | `phpoffice/phpspreadsheet` 5.9.0                                                   |
+| PNG            | PHP GD + FreeTypeによるサーバー描画                                                |
+| テスト         | PHPUnit 12.5.34、Vitest（Vite Plus経由）                                           |
+| 静的解析/整形  | Larastan 3.11.0、Laravel Pint 1.30.5                                               |
+| ルート型生成   | Laravel Wayfinder 0.1.21 / Vite plugin 0.1.10                                      |
 
 主なComposer packageは、Laravel、Inertia Laravel adapter、Fortify、Dompdf、PhpSpreadsheet、Wayfinder、Tinkerである。主なnpm packageはReact、Inertia React、Tailwind、Vite、Radix UI群、Lucide React、Sonner、`clsx`、`tailwind-merge`、`input-otp`である。
 
@@ -99,92 +99,92 @@ docs/                             # 要件、計算、データモデル、運�
 
 ### 4.1 業務Route
 
-| Method | URL | Name | Controller@Action | MW |
-|---|---|---|---|---|
-| GET | `/` | `home` | Closure | web |
-| GET | `/dashboard` | `dashboard` | DashboardController | web, auth, verified |
-| PUT | `/selected-store` | `selected-store.update` | SelectedStoreController@update | biz |
-| GET | `/stores` | `stores.index` | Master\\StoreController@index | biz |
-| POST | `/stores` | `stores.store` | Master\\StoreController@store | biz |
-| GET | `/stores/{store}/edit` | `stores.edit` | Master\\StoreController@edit | biz |
-| PUT/PATCH | `/stores/{store}` | `stores.update` | Master\\StoreController@update | biz |
-| POST | `/stores/{store}/holidays` | `stores.holidays.store` | Master\\StoreHolidayController@store | biz |
-| DELETE | `/stores/{store}/holidays/{holiday}` | `stores.holidays.destroy` | Master\\StoreHolidayController@destroy | biz |
-| GET | `/staffs` | `staffs.index` | Master\\StaffController@index | biz |
-| GET | `/staffs/create` | `staffs.create` | Master\\StaffController@create | biz |
-| POST | `/staffs` | `staffs.store` | Master\\StaffController@store | biz |
-| GET | `/staffs/{staff}/edit` | `staffs.edit` | Master\\StaffController@edit | biz |
-| PUT/PATCH | `/staffs/{staff}` | `staffs.update` | Master\\StaffController@update | biz |
-| GET/POST | `/staffs-import` | `staffs.import.index/store` | Master\\StaffInitialImportController@index/store | biz |
-| GET | `/staffs-import/template` | `staffs.import.template` | Master\\StaffInitialImportController@template | biz |
-| POST/DELETE | `/staffs/{staff}/account` | `staffs.account.store/destroy` | Master\\StaffUserController | biz |
-| POST/PUT | `/staffs/{staff}/assignments[...]` | `staffs.assignments.store/update` | Master\\StaffHistoryController | biz |
-| POST/PUT | `/staffs/{staff}/wage-rates[...]` | `staffs.wage-rates.store/update` | Master\\StaffHistoryController | biz |
-| POST/PUT | `/staffs/{staff}/transportation-fees[...]` | `staffs.transportation-fees.store/update` | Master\\StaffHistoryController | biz |
-| POST/PUT | `/staffs/{staff}/income-tax-settings[...]` | `staffs.income-tax-settings.store/update` | Master\\StaffHistoryController | biz |
-| GET | `/shifts/monthly` | `shifts.monthly` | ShiftController@monthly | biz |
-| GET | `/shifts/daily` | `shifts.daily` | ShiftController@daily | biz |
-| POST | `/shifts` | `shifts.store` | ShiftController@store | biz |
-| PUT | `/shifts/cell` | `shifts.cell.save` | ShiftController@saveCell | biz |
-| PUT | `/shifts/daily` | `shifts.daily.save` | ShiftController@saveDaily | biz |
-| PUT | `/shifts/monthly/order` | `shifts.monthly.order.save` | ShiftController@saveMonthlyOrder | biz |
-| POST/DELETE | `/shifts/monthly/staffs` | `shifts.monthly.staffs.store/destroy` | ShiftController@add/removeMonthlyStaff | biz |
-| GET | `/shifts/monthly.png` | `shifts.monthly.png` | ShiftPngController | biz |
-| GET | `/attendance/daily` | `attendance.daily` | AttendanceController@daily | biz |
-| PUT | `/attendance/daily` | `attendance.daily.save` | AttendanceController@saveDaily | biz |
-| DELETE | `/attendance/{attendanceRecord}` | `attendance.destroy` | AttendanceController@destroy | biz |
-| GET | `/payrolls` | `payrolls.index` | PayrollController@index | biz |
-| POST | `/payrolls/calculate-all` | `payrolls.calculate-all` | PayrollController@calculateAll | biz |
-| POST | `/payrolls/{staff}/calculate` | `payrolls.calculate` | PayrollController@calculate | biz |
-| PUT | `/commissions` | `commissions.update` | CommissionController@update | biz |
-| DELETE | `/commissions/{staff}/{year}/{month}` | `commissions.destroy` | CommissionController@destroy | biz |
-| GET | `/payrolls/{staff}/statement` | `payrolls.statement` | PayrollStatementController@show | biz |
-| GET | `/payroll-statements.zip` | `payrolls.statements.bulk` | PayrollStatementController@bulk | biz |
-| GET | `/aggregations` | `aggregations.index` | AggregationController@index | biz |
-| GET | `/aggregations.xlsx` | `aggregations.xlsx` | AggregationExportController | biz |
-| GET/POST/PUT | `/settings/late-night-rates[...]` | `late-night-rates.*` | Master\\LateNightRateSettingController | biz |
-| GET | `/settings/income-tax-status` | `income-tax-status.index` | IncomeTaxStatusController | dev |
-| GET/PATCH | `/settings/profile` | `profile.edit/update` | Settings\\ProfileController | auth（GETはverifiedなし） |
-| GET | `/settings/security` | `security.edit` | Settings\\SecurityController | auth, verified, password確認 |
-| PUT | `/settings/password` | `user-password.update` | Settings\\SecurityController@update | auth, verified, throttle |
-| GET | `/settings/appearance` | `appearance.edit` | Inertia Controller | auth, verified |
+| Method       | URL                                        | Name                                      | Controller@Action                                | MW                           |
+| ------------ | ------------------------------------------ | ----------------------------------------- | ------------------------------------------------ | ---------------------------- |
+| GET          | `/`                                        | `home`                                    | Closure                                          | web                          |
+| GET          | `/dashboard`                               | `dashboard`                               | DashboardController                              | web, auth, verified          |
+| PUT          | `/selected-store`                          | `selected-store.update`                   | SelectedStoreController@update                   | biz                          |
+| GET          | `/stores`                                  | `stores.index`                            | Master\\StoreController@index                    | biz                          |
+| POST         | `/stores`                                  | `stores.store`                            | Master\\StoreController@store                    | biz                          |
+| GET          | `/stores/{store}/edit`                     | `stores.edit`                             | Master\\StoreController@edit                     | biz                          |
+| PUT/PATCH    | `/stores/{store}`                          | `stores.update`                           | Master\\StoreController@update                   | biz                          |
+| POST         | `/stores/{store}/holidays`                 | `stores.holidays.store`                   | Master\\StoreHolidayController@store             | biz                          |
+| DELETE       | `/stores/{store}/holidays/{holiday}`       | `stores.holidays.destroy`                 | Master\\StoreHolidayController@destroy           | biz                          |
+| GET          | `/staffs`                                  | `staffs.index`                            | Master\\StaffController@index                    | biz                          |
+| GET          | `/staffs/create`                           | `staffs.create`                           | Master\\StaffController@create                   | biz                          |
+| POST         | `/staffs`                                  | `staffs.store`                            | Master\\StaffController@store                    | biz                          |
+| GET          | `/staffs/{staff}/edit`                     | `staffs.edit`                             | Master\\StaffController@edit                     | biz                          |
+| PUT/PATCH    | `/staffs/{staff}`                          | `staffs.update`                           | Master\\StaffController@update                   | biz                          |
+| GET/POST     | `/staffs-import`                           | `staffs.import.index/store`               | Master\\StaffInitialImportController@index/store | biz                          |
+| GET          | `/staffs-import/template`                  | `staffs.import.template`                  | Master\\StaffInitialImportController@template    | biz                          |
+| POST/DELETE  | `/staffs/{staff}/account`                  | `staffs.account.store/destroy`            | Master\\StaffUserController                      | biz                          |
+| POST/PUT     | `/staffs/{staff}/assignments[...]`         | `staffs.assignments.store/update`         | Master\\StaffHistoryController                   | biz                          |
+| POST/PUT     | `/staffs/{staff}/wage-rates[...]`          | `staffs.wage-rates.store/update`          | Master\\StaffHistoryController                   | biz                          |
+| POST/PUT     | `/staffs/{staff}/transportation-fees[...]` | `staffs.transportation-fees.store/update` | Master\\StaffHistoryController                   | biz                          |
+| POST/PUT     | `/staffs/{staff}/income-tax-settings[...]` | `staffs.income-tax-settings.store/update` | Master\\StaffHistoryController                   | biz                          |
+| GET          | `/shifts/monthly`                          | `shifts.monthly`                          | ShiftController@monthly                          | biz                          |
+| GET          | `/shifts/daily`                            | `shifts.daily`                            | ShiftController@daily                            | biz                          |
+| POST         | `/shifts`                                  | `shifts.store`                            | ShiftController@store                            | biz                          |
+| PUT          | `/shifts/cell`                             | `shifts.cell.save`                        | ShiftController@saveCell                         | biz                          |
+| PUT          | `/shifts/daily`                            | `shifts.daily.save`                       | ShiftController@saveDaily                        | biz                          |
+| PUT          | `/shifts/monthly/order`                    | `shifts.monthly.order.save`               | ShiftController@saveMonthlyOrder                 | biz                          |
+| POST/DELETE  | `/shifts/monthly/staffs`                   | `shifts.monthly.staffs.store/destroy`     | ShiftController@add/removeMonthlyStaff           | biz                          |
+| GET          | `/shifts/monthly.png`                      | `shifts.monthly.png`                      | ShiftPngController                               | biz                          |
+| GET          | `/attendance/daily`                        | `attendance.daily`                        | AttendanceController@daily                       | biz                          |
+| PUT          | `/attendance/daily`                        | `attendance.daily.save`                   | AttendanceController@saveDaily                   | biz                          |
+| DELETE       | `/attendance/{attendanceRecord}`           | `attendance.destroy`                      | AttendanceController@destroy                     | biz                          |
+| GET          | `/payrolls`                                | `payrolls.index`                          | PayrollController@index                          | biz                          |
+| POST         | `/payrolls/calculate-all`                  | `payrolls.calculate-all`                  | PayrollController@calculateAll                   | biz                          |
+| POST         | `/payrolls/{staff}/calculate`              | `payrolls.calculate`                      | PayrollController@calculate                      | biz                          |
+| PUT          | `/commissions`                             | `commissions.update`                      | CommissionController@update                      | biz                          |
+| DELETE       | `/commissions/{staff}/{year}/{month}`      | `commissions.destroy`                     | CommissionController@destroy                     | biz                          |
+| GET          | `/payrolls/{staff}/statement`              | `payrolls.statement`                      | PayrollStatementController@show                  | biz                          |
+| GET          | `/payroll-statements.zip`                  | `payrolls.statements.bulk`                | PayrollStatementController@bulk                  | biz                          |
+| GET          | `/aggregations`                            | `aggregations.index`                      | AggregationController@index                      | biz                          |
+| GET          | `/aggregations.xlsx`                       | `aggregations.xlsx`                       | AggregationExportController                      | biz                          |
+| GET/POST/PUT | `/settings/late-night-rates[...]`          | `late-night-rates.*`                      | Master\\LateNightRateSettingController           | biz                          |
+| GET          | `/settings/income-tax-status`              | `income-tax-status.index`                 | IncomeTaxStatusController                        | dev                          |
+| GET/PATCH    | `/settings/profile`                        | `profile.edit/update`                     | Settings\\ProfileController                      | auth（GETはverifiedなし）    |
+| GET          | `/settings/security`                       | `security.edit`                           | Settings\\SecurityController                     | auth, verified, password確認 |
+| PUT          | `/settings/password`                       | `user-password.update`                    | Settings\\SecurityController@update              | auth, verified, throttle     |
+| GET          | `/settings/appearance`                     | `appearance.edit`                         | Inertia Controller                               | auth, verified               |
 
 ### 4.2 Fortify・フレームワークRoute
 
-| Method / URL | Name | Action / middleware |
-|---|---|---|
-| GET `/login` | login | Fortify AuthenticatedSession@create / web, guest |
-| POST `/login` | login.store | AuthenticatedSession@store / web, guest, throttle:login |
-| POST `/logout` | logout | AuthenticatedSession@destroy / web, auth |
-| GET `/forgot-password` | password.request | PasswordResetLink@create / web, guest |
-| POST `/forgot-password` | password.email | PasswordResetLink@store / web, guest |
-| GET `/reset-password/{token}` | password.reset | NewPassword@create / web, guest |
-| POST `/reset-password` | password.update | NewPassword@store / web, guest |
-| GET `/email/verify` | verification.notice | EmailVerificationPrompt / web, auth |
-| GET `/email/verify/{id}/{hash}` | verification.verify | VerifyEmail / web, auth, signed, throttle |
-| POST `/email/verification-notification` | verification.send | EmailVerificationNotification@store / web, auth, throttle |
-| GET/POST `/two-factor-challenge` | two-factor.login / .store | TwoFactorAuthenticatedSession / web, guest（POSTはthrottle） |
-| POST `/user/two-factor-authentication` | two-factor.enable | TwoFactorAuthentication@store / web, auth, password.confirm |
-| DELETE `/user/two-factor-authentication` | two-factor.disable | 同@destroy / web, auth, password.confirm |
-| POST `/user/confirmed-two-factor-authentication` | two-factor.confirm | ConfirmedTwoFactorAuthentication@store / web, auth, password.confirm |
-| GET `/user/two-factor-qr-code` | two-factor.qr-code | TwoFactorQrCode@show / web, auth, password.confirm |
-| GET `/user/two-factor-secret-key` | two-factor.secret-key | TwoFactorSecretKey@show / web, auth, password.confirm |
-| GET/POST `/user/two-factor-recovery-codes` | two-factor.recovery-codes / .regenerate-recovery-codes | RecoveryCode@index/store / web, auth, password.confirm |
-| GET `/user/confirm-password` | password.confirm | ConfirmablePassword@show / web, auth |
-| POST `/user/confirm-password` | password.confirm.store | ConfirmablePassword@store / web, auth |
-| GET `/user/confirmed-password-status` | password.confirmation | ConfirmedPasswordStatus@show / web, auth |
-| GET `/passkeys/login/options` | passkey.login-options | PasskeyLogin@index / web, guest, throttle |
-| POST `/passkeys/login` | passkey.login | PasskeyLogin@store / web, guest, throttle |
-| GET `/passkeys/confirm/options` | passkey.confirm-options | PasskeyConfirmation@index / web, auth, throttle |
-| POST `/passkeys/confirm` | passkey.confirm | PasskeyConfirmation@store / web, auth, throttle |
-| GET `/user/passkeys/options` | passkey.registration-options | PasskeyRegistration@index / web, auth, password.confirm, throttle |
-| POST `/user/passkeys` | passkey.store | PasskeyRegistration@store / 同上 |
-| DELETE `/user/passkeys/{passkey}` | passkey.destroy | PasskeyRegistration@destroy / 同上 |
-| GET `/.well-known/passkey-endpoints` | well-known.passkeys | Closure / web |
-| ANY `/settings` | - | RedirectController / web, auth |
-| GET `/up` | - | Laravel health Closure / middlewareなし |
-| GET `_inertia/devtools/entries[/{id}]` | - | Inertia DevTools Entries@index/show / DevTools Authorize等 |
-| GET/PUT `/storage/{path}` | storage.local / .upload | Laravel local disk Closure / Route表示上middlewareなし |
+| Method / URL                                     | Name                                                   | Action / middleware                                                  |
+| ------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------------- |
+| GET `/login`                                     | login                                                  | Fortify AuthenticatedSession@create / web, guest                     |
+| POST `/login`                                    | login.store                                            | AuthenticatedSession@store / web, guest, throttle:login              |
+| POST `/logout`                                   | logout                                                 | AuthenticatedSession@destroy / web, auth                             |
+| GET `/forgot-password`                           | password.request                                       | PasswordResetLink@create / web, guest                                |
+| POST `/forgot-password`                          | password.email                                         | PasswordResetLink@store / web, guest                                 |
+| GET `/reset-password/{token}`                    | password.reset                                         | NewPassword@create / web, guest                                      |
+| POST `/reset-password`                           | password.update                                        | NewPassword@store / web, guest                                       |
+| GET `/email/verify`                              | verification.notice                                    | EmailVerificationPrompt / web, auth                                  |
+| GET `/email/verify/{id}/{hash}`                  | verification.verify                                    | VerifyEmail / web, auth, signed, throttle                            |
+| POST `/email/verification-notification`          | verification.send                                      | EmailVerificationNotification@store / web, auth, throttle            |
+| GET/POST `/two-factor-challenge`                 | two-factor.login / .store                              | TwoFactorAuthenticatedSession / web, guest（POSTはthrottle）         |
+| POST `/user/two-factor-authentication`           | two-factor.enable                                      | TwoFactorAuthentication@store / web, auth, password.confirm          |
+| DELETE `/user/two-factor-authentication`         | two-factor.disable                                     | 同@destroy / web, auth, password.confirm                             |
+| POST `/user/confirmed-two-factor-authentication` | two-factor.confirm                                     | ConfirmedTwoFactorAuthentication@store / web, auth, password.confirm |
+| GET `/user/two-factor-qr-code`                   | two-factor.qr-code                                     | TwoFactorQrCode@show / web, auth, password.confirm                   |
+| GET `/user/two-factor-secret-key`                | two-factor.secret-key                                  | TwoFactorSecretKey@show / web, auth, password.confirm                |
+| GET/POST `/user/two-factor-recovery-codes`       | two-factor.recovery-codes / .regenerate-recovery-codes | RecoveryCode@index/store / web, auth, password.confirm               |
+| GET `/user/confirm-password`                     | password.confirm                                       | ConfirmablePassword@show / web, auth                                 |
+| POST `/user/confirm-password`                    | password.confirm.store                                 | ConfirmablePassword@store / web, auth                                |
+| GET `/user/confirmed-password-status`            | password.confirmation                                  | ConfirmedPasswordStatus@show / web, auth                             |
+| GET `/passkeys/login/options`                    | passkey.login-options                                  | PasskeyLogin@index / web, guest, throttle                            |
+| POST `/passkeys/login`                           | passkey.login                                          | PasskeyLogin@store / web, guest, throttle                            |
+| GET `/passkeys/confirm/options`                  | passkey.confirm-options                                | PasskeyConfirmation@index / web, auth, throttle                      |
+| POST `/passkeys/confirm`                         | passkey.confirm                                        | PasskeyConfirmation@store / web, auth, throttle                      |
+| GET `/user/passkeys/options`                     | passkey.registration-options                           | PasskeyRegistration@index / web, auth, password.confirm, throttle    |
+| POST `/user/passkeys`                            | passkey.store                                          | PasskeyRegistration@store / 同上                                     |
+| DELETE `/user/passkeys/{passkey}`                | passkey.destroy                                        | PasskeyRegistration@destroy / 同上                                   |
+| GET `/.well-known/passkey-endpoints`             | well-known.passkeys                                    | Closure / web                                                        |
+| ANY `/settings`                                  | -                                                      | RedirectController / web, auth                                       |
+| GET `/up`                                        | -                                                      | Laravel health Closure / middlewareなし                              |
+| GET `_inertia/devtools/entries[/{id}]`           | -                                                      | Inertia DevTools Entries@index/show / DevTools Authorize等           |
+| GET/PUT `/storage/{path}`                        | storage.local / .upload                                | Laravel local disk Closure / Route表示上middlewareなし               |
 
 `local` disk rootは`storage/app/private`かつ`serve=true`であるため、storage Routeは本番で必要性と認可条件を確認すべき接点である。
 
@@ -192,55 +192,55 @@ docs/                             # 要件、計算、データモデル、運�
 
 ## 5. Controllers
 
-| Controller | Method | 担当 / 呼出Service / Controller直書きロジック |
-|---|---|---|
-| DashboardController | `__invoke` | SelectedStore、BusinessDateを利用。シフト人数、勤怠未入力、所属内訳はQuery Builderで直接集計 |
-| SelectedStoreController | `update` | SelectedStoreServiceでセッションへ保存 |
-| StoreController | `index/store/edit/update` | 店舗CRUD、店休日月絞込。削除はなく無効化。保存自体はEloquent直接 |
-| StoreHolidayController | `store/destroy` | ShiftMasterDataGuardで勤務シフトとの矛盾を防止後、Eloquent保存/削除 |
-| StaffController | `index/create/store/edit/update` | 検索・25件paginate、登録時初期所属をtransaction保存、履歴表示、在籍変更guard |
-| StaffHistoryController | 履歴のstore/update | EffectivePeriodService、ShiftMasterDataGuard、PayrollRecalculationServiceを使用 |
-| StaffUserController | `store/destroy` | 社員限定、User作成/更新/削除。アルバイト拒否 |
-| StaffInitialImportController | `index/store/template` | StaffInitialImportService、PhpSpreadsheetでテンプレート生成 |
-| ShiftController | 月次/日次/各保存/並替/追加削除 | ShiftCalendarService、ShiftSaveService、SelectedStoreService。追加・削除・順序はtransactionと直接Eloquentも使用 |
-| ShiftPngController | `__invoke` | ShiftPngServiceからPNG response |
-| AttendanceController | `daily/saveDaily/destroy` | AttendanceCalendarService、AttendanceSaveService、SelectedStoreService、BusinessDateService |
-| CommissionController | `update/destroy` | アルバイト限定、Commissionをupsert/delete、PayrollRecalculationServiceでstale化 |
-| PayrollController | `index/calculate/calculateAll` | 一覧QueryはController、計算はPayrollCalculationService |
-| PayrollStatementController | `show/bulk` | 対象給与の妥当性検証、PayrollPdfService、ZipArchive。一時ZIPをレスポンス後削除 |
-| AggregationController | `index` | MonthlyAggregationService、SelectedStoreService |
-| AggregationExportController | `__invoke` | MonthlyAggregationServiceとAttendanceExcelService |
-| IncomeTaxStatusController | `__invoke` | 適用DB版とIncomeTaxSourceStatusServiceの取得状態を統合表示 |
-| LateNightRateSettingController | `index/store/update` | EffectivePeriodServiceとPayrollRecalculationService |
-| ProfileController | `edit/update` | ユーザー名・メール更新、Fortify系validation |
-| SecurityController | `edit/update` | 2FA/Passkey表示とパスワード更新 |
+| Controller                     | Method                           | 担当 / 呼出Service / Controller直書きロジック                                                                   |
+| ------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| DashboardController            | `__invoke`                       | SelectedStore、BusinessDateを利用。シフト人数、勤怠未入力、所属内訳はQuery Builderで直接集計                    |
+| SelectedStoreController        | `update`                         | SelectedStoreServiceでセッションへ保存                                                                          |
+| StoreController                | `index/store/edit/update`        | 店舗CRUD、店休日月絞込。削除はなく無効化。保存自体はEloquent直接                                                |
+| StoreHolidayController         | `store/destroy`                  | ShiftMasterDataGuardで勤務シフトとの矛盾を防止後、Eloquent保存/削除                                             |
+| StaffController                | `index/create/store/edit/update` | 検索・25件paginate、登録時初期所属をtransaction保存、履歴表示、在籍変更guard                                    |
+| StaffHistoryController         | 履歴のstore/update               | EffectivePeriodService、ShiftMasterDataGuard、PayrollRecalculationServiceを使用                                 |
+| StaffUserController            | `store/destroy`                  | 社員限定、User作成/更新/削除。アルバイト拒否                                                                    |
+| StaffInitialImportController   | `index/store/template`           | StaffInitialImportService、PhpSpreadsheetでテンプレート生成                                                     |
+| ShiftController                | 月次/日次/各保存/並替/追加削除   | ShiftCalendarService、ShiftSaveService、SelectedStoreService。追加・削除・順序はtransactionと直接Eloquentも使用 |
+| ShiftPngController             | `__invoke`                       | ShiftPngServiceからPNG response                                                                                 |
+| AttendanceController           | `daily/saveDaily/destroy`        | AttendanceCalendarService、AttendanceSaveService、SelectedStoreService、BusinessDateService                     |
+| CommissionController           | `update/destroy`                 | アルバイト限定、Commissionをupsert/delete、PayrollRecalculationServiceでstale化                                 |
+| PayrollController              | `index/calculate/calculateAll`   | 一覧QueryはController、計算はPayrollCalculationService                                                          |
+| PayrollStatementController     | `show/bulk`                      | 対象給与の妥当性検証、PayrollPdfService、ZipArchive。一時ZIPをレスポンス後削除                                  |
+| AggregationController          | `index`                          | MonthlyAggregationService、SelectedStoreService                                                                 |
+| AggregationExportController    | `__invoke`                       | MonthlyAggregationServiceとAttendanceExcelService                                                               |
+| IncomeTaxStatusController      | `__invoke`                       | 適用DB版とIncomeTaxSourceStatusServiceの取得状態を統合表示                                                      |
+| LateNightRateSettingController | `index/store/update`             | EffectivePeriodServiceとPayrollRecalculationService                                                             |
+| ProfileController              | `edit/update`                    | ユーザー名・メール更新、Fortify系validation                                                                     |
+| SecurityController             | `edit/update`                    | 2FA/Passkey表示とパスワード更新                                                                                 |
 
 給与、勤務時間、深夜計算、PDF/Excel/PNG生成の本体はControllerに直書きされていない。一方、一覧用Query、対象期間抽出、ZIP組立、スタッフ追加/削除はControllerにも業務判断が残る。
 
 ## 6. Services / Action / Domainロジック
 
-| Service | 入力 → 処理 → 出力 |
-|---|---|
-| BusinessDateService | 現在日時 → 12:00未満なら前日、それ以降なら当日 → 現在営業日 |
-| SelectedStoreService | request/query/session → 有効店舗検証、セッション`selected_store_id`、名前順先頭fallback → 選択Store |
-| EffectivePeriodService | 履歴Query・期間・除外ID → 行ロック、inclusiveな期間重複検査/1件解決 → Modelまたは明示エラー |
-| ShiftCalendarService | Store・月/日 → 所属、既存シフト、追加行、休日、競合、表示順を統合 → Inertia用calendar配列 |
-| ShiftSaveService | context店舗・staff・日・種別・勤務店舗/時刻 → 在籍/所属/休日/営業時間/同日競合を検証してtransaction置換 → Shiftまたは削除 |
-| ShiftMasterDataGuard | 店休日/在籍/所属変更案 → 既存シフト・勤怠が範囲外にならないか検査 → 保存可否 |
-| ShiftPngService | Store・月 → ShiftCalendarをGD/FreeType描画 → PNG bytes |
-| AttendanceCalendarService | Store・work_date → 所属、予定、実績、急出勤候補、他店競合、警告を統合 → 日次画面props |
-| AttendanceTimeService | work_date・出退勤offset → 15分、営業日範囲、24時間未満を検証、実働と22:00〜翌08:00重複を算出 → datetime/分数 |
-| AttendanceSaveService | Store・work_date・複数record → transaction、店休確認、在籍/所属/予定、他店重複を検証、upsert → attendance、給与stale化 |
-| AttendanceSummaryService | 月・任意Store → 社員勤怠を集計 → 社員別時間配列 |
-| PayrollCalculationService | Staff・年月 → 全店舗勤怠と日付時点の履歴、歩合、支払日時点の税設定/税表を解決、月末丸め → Payroll upsert |
-| PayrollRecalculationService | staff/月または全件 → 既存Payrollの`needs_recalculation=true` → 更新件数相当 |
-| IncomeTaxCalculationService | 年、甲乙、扶養、参照額 → 該当version/ruleを検索し整数算式を評価 → 所得税円額 |
-| IncomeTaxSourceFetchService | 年 → 国税庁HTML/Excelのみ取得、URL・サイズ・Excel構造・SHA-256検証 → private storage原典とmetadata |
-| IncomeTaxSourceStatusService | 年/状態 → private JSON保存/読取 → 開発管理者画面用状態 |
-| MonthlyAggregationService | 年月・任意Store → 勤怠と履歴を日別/店舗別/全店舗で集計、Payroll snapshot結合 → MonthlyAggregationReport |
-| AttendanceExcelService | MonthlyAggregationReport → 2 sheetのXLSX生成 → private一時file path |
-| PayrollPdfService | 保存済みPayroll → 正式氏名・出勤日数を読込、Blade+Dompdf → A4横PDF bytes |
-| StaffInitialImportService | CSV/XLSX → header/値/期間/重複を検証、全件transaction → staffと履歴の登録件数 |
+| Service                      | 入力 → 処理 → 出力                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| BusinessDateService          | 現在日時 → 12:00未満なら前日、それ以降なら当日 → 現在営業日                                                               |
+| SelectedStoreService         | request/query/session → 有効店舗検証、セッション`selected_store_id`、名前順先頭fallback → 選択Store                       |
+| EffectivePeriodService       | 履歴Query・期間・除外ID → 行ロック、inclusiveな期間重複検査/1件解決 → Modelまたは明示エラー                               |
+| ShiftCalendarService         | Store・月/日 → 所属、既存シフト、追加行、休日、競合、表示順を統合 → Inertia用calendar配列                                 |
+| ShiftSaveService             | context店舗・staff・日・種別・勤務店舗/時刻 → 在籍/所属/休日/営業時間/同日競合を検証してtransaction置換 → Shiftまたは削除 |
+| ShiftMasterDataGuard         | 店休日/在籍/所属変更案 → 既存シフト・勤怠が範囲外にならないか検査 → 保存可否                                              |
+| ShiftPngService              | Store・月 → ShiftCalendarをGD/FreeType描画 → PNG bytes                                                                    |
+| AttendanceCalendarService    | Store・work_date → 所属、予定、実績、急出勤候補、他店競合、警告を統合 → 日次画面props                                     |
+| AttendanceTimeService        | work_date・出退勤offset → 15分、営業日範囲、24時間未満を検証、実働と22:00〜翌08:00重複を算出 → datetime/分数              |
+| AttendanceSaveService        | Store・work_date・複数record → transaction、店休確認、在籍/所属/予定、他店重複を検証、upsert → attendance、給与stale化    |
+| AttendanceSummaryService     | 月・任意Store → 社員勤怠を集計 → 社員別時間配列                                                                           |
+| PayrollCalculationService    | Staff・年月 → 全店舗勤怠と日付時点の履歴、歩合、支払日時点の税設定/税表を解決、月末丸め → Payroll upsert                  |
+| PayrollRecalculationService  | staff/月または全件 → 既存Payrollの`needs_recalculation=true` → 更新件数相当                                               |
+| IncomeTaxCalculationService  | 年、甲乙、扶養、参照額 → 該当version/ruleを検索し整数算式を評価 → 所得税円額                                              |
+| IncomeTaxSourceFetchService  | 年 → 国税庁HTML/Excelのみ取得、URL・サイズ・Excel構造・SHA-256検証 → private storage原典とmetadata                        |
+| IncomeTaxSourceStatusService | 年/状態 → private JSON保存/読取 → 開発管理者画面用状態                                                                    |
+| MonthlyAggregationService    | 年月・任意Store → 勤怠と履歴を日別/店舗別/全店舗で集計、Payroll snapshot結合 → MonthlyAggregationReport                   |
+| AttendanceExcelService       | MonthlyAggregationReport → 2 sheetのXLSX生成 → private一時file path                                                       |
+| PayrollPdfService            | 保存済みPayroll → 正式氏名・出勤日数を読込、Blade+Dompdf → A4横PDF bytes                                                  |
+| StaffInitialImportService    | CSV/XLSX → header/値/期間/重複を検証、全件transaction → staffと履歴の登録件数                                             |
 
 Fortifyの`Actions/Fortify`にはパスワードルール、ユーザー認証処理がある。独立したDomain Entityはなく、Eloquent Model + Serviceが事実上のドメイン層である。
 
@@ -248,25 +248,25 @@ Fortifyの`Actions/Fortify`にはパスワードルール、ユーザー認証�
 
 全Modelは`guarded`ではなく原則`fillable`を指定する。
 
-| Model / table | fillable・casts・特殊処理 | 主なrelation/scope |
-|---|---|---|
-| User / users | staff_id,name,email,password,role。password=hashed、role=UserRole、2FA日時。bootでemployee userのstaff必須・staffは社員限定 | belongsTo Staff、`isDevelopmentAdmin()` |
-| Staff / staffs | name,last_name,first_name,display_name,employment_type,hired_at,retired_at。saving時にlegacy `name`を正式氏名へ同期 | user、全履歴、shift、attendance、payroll。`full_name`、`preferred_name` accessor、`isEmployedOn`、`inDisplayOrder` |
-| Store / stores | name,opening_time,closing_time,is_active | holidays、assignments、display orders、additions、transport、shift、attendance。`allowsShiftStartTime` |
-| StoreHoliday / store_holidays | store_id,holiday_date。date cast | belongsTo Store |
-| StaffStoreAssignment / staff_store_assignments | staff_id,store_id,effective_from,to | belongsTo Staff/Store、HasEffectivePeriod |
-| StaffWageRate / staff_wage_rates | staff_id,hourly_wage,effective_from,to | belongsTo Staff、HasEffectivePeriod |
-| StaffStoreTransportationFee / staff_store_transportation_fees | staff_id,store_id,amount_per_day,tax_type,effective期間。tax_type enum | belongsTo Staff/Store、HasEffectivePeriod |
-| StaffIncomeTaxSetting / staff_income_tax_settings | staff_id,tax_category,dependent_count,effective期間。category enum | belongsTo Staff、HasEffectivePeriod |
-| LateNightRateSetting / late_night_rate_settings | amount_per_hour,effective期間 | HasEffectivePeriod |
-| StaffStoreDisplayOrder / staff_store_display_orders | store_id,staff_id,position | belongsTo Store/Staff |
-| MonthlyShiftStaffAddition / monthly_shift_staff_additions | store_id,staff_id,month,position。month=date | belongsTo Store/Staff |
-| Shift / shifts | staff_id,store_id,shift_date,shift_type,start_time。date/ShiftType cast | belongsTo Staff/Store |
-| AttendanceRecord / attendance_records | staff_id,store_id,work_date,clock_in/out,working_minutes,late_night_minutes | belongsTo Staff/Store、date/datetime casts |
-| Commission / commissions | staff_id,year,month,amount。数値cast | belongsTo Staff |
-| Payroll / payrolls | 全給与結果列 | belongsTo Staff、日付/数値/bool/datetime casts |
-| IncomeTaxTableVersion / income_tax_table_versions | tax_year,name,source_url,source_hash,imported_at | hasMany IncomeTaxRule |
-| IncomeTaxRule / income_tax_rules | version,category,dependent,金額範囲,計算種別,固定税額,parameters,order | belongsTo version、parameters=json |
+| Model / table                                                 | fillable・casts・特殊処理                                                                                                   | 主なrelation/scope                                                                                                 |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| User / users                                                  | staff_id,name,email,password,role。password=hashed、role=UserRole、2FA日時。bootでemployee userのstaff必須・staffは社員限定 | belongsTo Staff、`isDevelopmentAdmin()`                                                                            |
+| Staff / staffs                                                | name,last_name,first_name,display_name,employment_type,hired_at,retired_at。saving時にlegacy `name`を正式氏名へ同期         | user、全履歴、shift、attendance、payroll。`full_name`、`preferred_name` accessor、`isEmployedOn`、`inDisplayOrder` |
+| Store / stores                                                | name,opening_time,closing_time,is_active                                                                                    | holidays、assignments、display orders、additions、transport、shift、attendance。`allowsShiftStartTime`             |
+| StoreHoliday / store_holidays                                 | store_id,holiday_date。date cast                                                                                            | belongsTo Store                                                                                                    |
+| StaffStoreAssignment / staff_store_assignments                | staff_id,store_id,effective_from,to                                                                                         | belongsTo Staff/Store、HasEffectivePeriod                                                                          |
+| StaffWageRate / staff_wage_rates                              | staff_id,hourly_wage,effective_from,to                                                                                      | belongsTo Staff、HasEffectivePeriod                                                                                |
+| StaffStoreTransportationFee / staff_store_transportation_fees | staff_id,store_id,amount_per_day,tax_type,effective期間。tax_type enum                                                      | belongsTo Staff/Store、HasEffectivePeriod                                                                          |
+| StaffIncomeTaxSetting / staff_income_tax_settings             | staff_id,tax_category,dependent_count,effective期間。category enum                                                          | belongsTo Staff、HasEffectivePeriod                                                                                |
+| LateNightRateSetting / late_night_rate_settings               | amount_per_hour,effective期間                                                                                               | HasEffectivePeriod                                                                                                 |
+| StaffStoreDisplayOrder / staff_store_display_orders           | store_id,staff_id,position                                                                                                  | belongsTo Store/Staff                                                                                              |
+| MonthlyShiftStaffAddition / monthly_shift_staff_additions     | store_id,staff_id,month,position。month=date                                                                                | belongsTo Store/Staff                                                                                              |
+| Shift / shifts                                                | staff_id,store_id,shift_date,shift_type,start_time。date/ShiftType cast                                                     | belongsTo Staff/Store                                                                                              |
+| AttendanceRecord / attendance_records                         | staff_id,store_id,work_date,clock_in/out,working_minutes,late_night_minutes                                                 | belongsTo Staff/Store、date/datetime casts                                                                         |
+| Commission / commissions                                      | staff_id,year,month,amount。数値cast                                                                                        | belongsTo Staff                                                                                                    |
+| Payroll / payrolls                                            | 全給与結果列                                                                                                                | belongsTo Staff、日付/数値/bool/datetime casts                                                                     |
+| IncomeTaxTableVersion / income_tax_table_versions             | tax_year,name,source_url,source_hash,imported_at                                                                            | hasMany IncomeTaxRule                                                                                              |
+| IncomeTaxRule / income_tax_rules                              | version,category,dependent,金額範囲,計算種別,固定税額,parameters,order                                                      | belongsTo version、parameters=json                                                                                 |
 
 `HasEffectivePeriod`は`effective_from <= 対象日`かつ`effective_to IS NULL OR effective_to >= 対象日`で、開始日・終了日とも含む。
 
@@ -291,25 +291,25 @@ Fortifyの`Actions/Fortify`にはパスワードルール、ユーザー認証�
 
 ### 8.1 業務テーブル
 
-| Table | 主なカラム（型、null/default） | Index / FK / 制約 |
-|---|---|---|
-| stores | id bigint、name varchar、opening_time time default 17:00、closing_time time default 10:00、is_active bool default 1、timestamps | name unique、is_active index |
-| store_holidays | id、store_id bigint、holiday_date date、timestamps | unique(store,date)、index(date,store)、store FK restrict |
-| staffs | id、name varchar、last_name/first_name/display_name nullable、employment_type varchar、hired_at/retired_at nullable、timestamps | employment/hired/retired index |
-| users | id、staff_id nullable、name、email、password、2FA fields nullable、role default employee、timestamps | email unique、staff_id unique FK staffs restrict、role index |
-| staff_store_assignments | staff_id、store_id、effective_from date、effective_to nullable、timestamps | staff/effective・store/effective index、両FK restrict。DB上の期間重複uniqueはなし |
-| staff_wage_rates | staff_id、hourly_wage unsigned int、effective_from/to、timestamps | staff/effective index、staff FK restrict |
-| staff_store_transportation_fees | staff_id、store_id、amount_per_day unsigned int、tax_type varchar、effective_from/to | staff+store+effective index、両FK restrict |
-| staff_income_tax_settings | staff_id、tax_category varchar、dependent_count unsigned smallint、effective_from/to | staff/effective index、staff FK restrict |
-| late_night_rate_settings | amount_per_hour unsigned int、effective_from/to | effective期間index |
-| staff_store_display_orders | store_id、staff_id、position unsigned int、timestamps | unique(store,staff)、index(store,position)、両FK cascade |
-| monthly_shift_staff_additions | store_id、staff_id、month date、position unsigned int、timestamps | unique(store,staff,month)、index(store,month,position)、両FK cascade |
-| shifts | staff_id、store_id nullable、shift_date date、shift_type varchar、start_time nullable、timestamps | unique(staff,date)、store/date・staff/date index、FK restrict、形状CHECK |
-| attendance_records | staff_id、store_id、work_date、clock_in_at/out_at datetime、working_minutes/late_night_minutes unsigned int | unique(staff,work_date)、store/date・staff/date index、FK restrict、時刻/分数CHECK |
-| commissions | staff_id、year smallint、month tinyint、amount unsigned bigint、timestamps | unique(staff,year,month)、year/month index、staff FK restrict |
-| payrolls | staff_id、year、month、payment_date、tax_year、勤務分、深夜分、各支給/控除、net_pay、needs_recalculation default 0、calculated_at nullable | unique(staff,year,month)、index(year,month,stale)、staff FK restrict |
-| income_tax_table_versions | tax_year、name、source_url、source_hash、imported_at、timestamps | tax_year unique |
-| income_tax_rules | table_version_id、tax_category、dependent_count nullable、min/max_amount、calculation_type、fixed_tax_amount nullable、parameters json nullable、sort_order | unique(version,category,dependent,min)、lookup index、version FK cascade |
+| Table                           | 主なカラム（型、null/default）                                                                                                                              | Index / FK / 制約                                                                  |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| stores                          | id bigint、name varchar、opening_time time default 17:00、closing_time time default 10:00、is_active bool default 1、timestamps                             | name unique、is_active index                                                       |
+| store_holidays                  | id、store_id bigint、holiday_date date、timestamps                                                                                                          | unique(store,date)、index(date,store)、store FK restrict                           |
+| staffs                          | id、name varchar、last_name/first_name/display_name nullable、employment_type varchar、hired_at/retired_at nullable、timestamps                             | employment/hired/retired index                                                     |
+| users                           | id、staff_id nullable、name、email、password、2FA fields nullable、role default employee、timestamps                                                        | email unique、staff_id unique FK staffs restrict、role index                       |
+| staff_store_assignments         | staff_id、store_id、effective_from date、effective_to nullable、timestamps                                                                                  | staff/effective・store/effective index、両FK restrict。DB上の期間重複uniqueはなし  |
+| staff_wage_rates                | staff_id、hourly_wage unsigned int、effective_from/to、timestamps                                                                                           | staff/effective index、staff FK restrict                                           |
+| staff_store_transportation_fees | staff_id、store_id、amount_per_day unsigned int、tax_type varchar、effective_from/to                                                                        | staff+store+effective index、両FK restrict                                         |
+| staff_income_tax_settings       | staff_id、tax_category varchar、dependent_count unsigned smallint、effective_from/to                                                                        | staff/effective index、staff FK restrict                                           |
+| late_night_rate_settings        | amount_per_hour unsigned int、effective_from/to                                                                                                             | effective期間index                                                                 |
+| staff_store_display_orders      | store_id、staff_id、position unsigned int、timestamps                                                                                                       | unique(store,staff)、index(store,position)、両FK cascade                           |
+| monthly_shift_staff_additions   | store_id、staff_id、month date、position unsigned int、timestamps                                                                                           | unique(store,staff,month)、index(store,month,position)、両FK cascade               |
+| shifts                          | staff_id、store_id nullable、shift_date date、shift_type varchar、start_time nullable、timestamps                                                           | unique(staff,date)、store/date・staff/date index、FK restrict、形状CHECK           |
+| attendance_records              | staff_id、store_id、work_date、clock_in_at/out_at datetime、working_minutes/late_night_minutes unsigned int                                                 | unique(staff,work_date)、store/date・staff/date index、FK restrict、時刻/分数CHECK |
+| commissions                     | staff_id、year smallint、month tinyint、amount unsigned bigint、timestamps                                                                                  | unique(staff,year,month)、year/month index、staff FK restrict                      |
+| payrolls                        | staff_id、year、month、payment_date、tax_year、勤務分、深夜分、各支給/控除、net_pay、needs_recalculation default 0、calculated_at nullable                  | unique(staff,year,month)、index(year,month,stale)、staff FK restrict               |
+| income_tax_table_versions       | tax_year、name、source_url、source_hash、imported_at、timestamps                                                                                            | tax_year unique                                                                    |
+| income_tax_rules                | table_version_id、tax_category、dependent_count nullable、min/max_amount、calculation_type、fixed_tax_amount nullable、parameters json nullable、sort_order | unique(version,category,dependent,min)、lookup index、version FK cascade           |
 
 `payrolls`の金額列は`base_pay`、`late_night_pay`、交通費total/taxable/non_taxable、`commission`、`gross_pay`、`taxable_pay`、`social_insurance_deduction`、`tax_table_reference_amount`、`income_tax`、`other_deductions`、`total_deductions`、`net_pay`である。`net_pay`だけsigned bigint、他はunsigned bigintで、現行計算では差引支給額が負になる可能性も型上は保持できる。
 
@@ -351,15 +351,15 @@ late_night_rate_settings（全社共通履歴）
 
 `shifts`はスタッフ×営業日で1件だけ持つ。`shift_date`が営業日、`store_id`が実際の勤務予定店舗である。
 
-| 状態 | DB表現 |
-|---|---|
-| 未設定 | レコードなし |
-| 時刻 | `shift_type=time`、store必須、start_time必須（00分） |
-| 早番 | `early`、store必須、start null |
-| 時刻未定の他店ヘルプ | `help`、ヘルプ先store必須、start null |
-| 休 | `off`、store/start null |
-| 急な休み | `absence`、store/start null |
-| 店休 | Shiftレコードではなく`store_holidays`を画面上で合成 |
+| 状態                 | DB表現                                               |
+| -------------------- | ---------------------------------------------------- |
+| 未設定               | レコードなし                                         |
+| 時刻                 | `shift_type=time`、store必須、start_time必須（00分） |
+| 早番                 | `early`、store必須、start null                       |
+| 時刻未定の他店ヘルプ | `help`、ヘルプ先store必須、start null                |
+| 休                   | `off`、store/start null                              |
+| 急な休み             | `absence`、store/start null                          |
+| 店休                 | Shiftレコードではなく`store_holidays`を画面上で合成  |
 
 したがって「休」「急休」は店舗単位ではなく、スタッフ×営業日の全店舗共通状態である。unique(staff,date)により同日に別店舗勤務と休を併存できず、同日の複数店舗勤務そのものも現行仕様では不可能である。
 
@@ -466,15 +466,15 @@ net_pay = gross_pay - total_deductions
 
 ### 12.3 丸め
 
-| 集計単位 | 現行丸め |
-|---|---|
-| 正式月次基本給 | 月内の`分×時給`を合計し、最後に`ceil(/60)` |
-| 正式月次深夜手当 | 月内の`深夜分×加算額`を合計し、最後に`ceil(/60)` |
-| 交通費・歩合 | 整数円の単純加算 |
-| 日別表示 | 日単位のraw基本給/深夜を各々最後にceil。labor_costは両raw+交通費を合わせて最後にceil |
-| 店舗別月次表示 | 店舗×staffのraw合計を表示単位の最後にceil |
-| 正式給与 | `payrolls` snapshotが正。日別/店舗別の表示丸め合計と一致しない場合がある |
-| 所得税算式 | ruleによりfixed、percentage floor、marginal floor、10円単位丸め |
+| 集計単位         | 現行丸め                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| 正式月次基本給   | 月内の`分×時給`を合計し、最後に`ceil(/60)`                                           |
+| 正式月次深夜手当 | 月内の`深夜分×加算額`を合計し、最後に`ceil(/60)`                                     |
+| 交通費・歩合     | 整数円の単純加算                                                                     |
+| 日別表示         | 日単位のraw基本給/深夜を各々最後にceil。labor_costは両raw+交通費を合わせて最後にceil |
+| 店舗別月次表示   | 店舗×staffのraw合計を表示単位の最後にceil                                            |
+| 正式給与         | `payrolls` snapshotが正。日別/店舗別の表示丸め合計と一致しない場合がある             |
+| 所得税算式       | ruleによりfixed、percentage floor、marginal floor、10円単位丸め                      |
 
 Controller、PDF、Excelで給与を再計算はせず、PDFは保存済みPayroll、全店舗集計はPayroll snapshotを参照する。
 
@@ -534,20 +534,20 @@ Controller、PDF、Excelで給与を再計算はせず、PDFは保存済みPayro
 
 ## 16. React / Inertia画面構成
 
-| Page | 主な責務 |
-|---|---|
-| `dashboard.tsx` | 選択店舗、現在営業日のシフト/勤怠サマリー |
-| `stores/index.tsx`, `edit.tsx` | 店舗CRUD、営業時間、有効状態、年月別店休 |
-| `staffs/index/create/edit/import.tsx` | 検索/page、氏名/表示名/雇用/在籍、各履歴、user、初期移行 |
-| `shifts/monthly.tsx` | 横スクロール月間表、cell即時保存、D&D、追加/削除、PNG |
-| `shifts/daily.tsx` | 日別local edits、一括保存、応援追加、responsive table/card |
-| `attendance/daily.tsx` | 手入力時刻、一括保存、急出勤/急休/交代、削除、responsive UI |
-| `payrolls/index.tsx` | 歩合、計算、stale、PDF/ZIP |
-| `aggregations/index.tsx` | 店舗別/日別/全店集計、XLSX、横scroll table |
-| `settings/late-night-rates.tsx` | 深夜単価履歴 |
-| `settings/income-tax-status.tsx` | 開発管理者だけの適用/取得状況 |
-| `settings/profile/security/appearance.tsx` | account設定 |
-| `auth/*` | Fortify login、reset、verify、2FA |
+| Page                                       | 主な責務                                                    |
+| ------------------------------------------ | ----------------------------------------------------------- |
+| `dashboard.tsx`                            | 選択店舗、現在営業日のシフト/勤怠サマリー                   |
+| `stores/index.tsx`, `edit.tsx`             | 店舗CRUD、営業時間、有効状態、年月別店休                    |
+| `staffs/index/create/edit/import.tsx`      | 検索/page、氏名/表示名/雇用/在籍、各履歴、user、初期移行    |
+| `shifts/monthly.tsx`                       | 横スクロール月間表、cell即時保存、D&D、追加/削除、PNG       |
+| `shifts/daily.tsx`                         | 日別local edits、一括保存、応援追加、responsive table/card  |
+| `attendance/daily.tsx`                     | 手入力時刻、一括保存、急出勤/急休/交代、削除、responsive UI |
+| `payrolls/index.tsx`                       | 歩合、計算、stale、PDF/ZIP                                  |
+| `aggregations/index.tsx`                   | 店舗別/日別/全店集計、XLSX、横scroll table                  |
+| `settings/late-night-rates.tsx`            | 深夜単価履歴                                                |
+| `settings/income-tax-status.tsx`           | 開発管理者だけの適用/取得状況                               |
+| `settings/profile/security/appearance.tsx` | account設定                                                 |
+| `auth/*`                                   | Fortify login、reset、verify、2FA                           |
 
 Inertia propsがサーバー状態の正本で、通常は`router.get/post/put/delete`でLaravelへ送る。現在選択店舗はReactだけではなくsessionが正本で、query `store_id`を受けた画面はsessionへ反映する。表示テーマはcookie、sidebar開閉もcookie。グローバルクライアントstate storeはない。
 
@@ -575,18 +575,18 @@ Inertia propsがサーバー状態の正本で、通常は`router.get/post/put/d
 
 PHP test fileはUnit 5本、Feature 22本（Auth/Settingsを含む）。主なcoverage:
 
-| 領域 | 有無 / 代表test |
-|---|---|
-| 日跨ぎ・12時境界・深夜・15分・24h未満 | 有。AttendanceTimeServiceTest、BusinessDateServiceTest、AttendanceManagementTest |
-| 店休・休・急休・他店help・同日競合 | 有。ShiftManagementTest、AttendanceManagementTest |
-| 適用期間・在籍・所属・初期import | 有。EffectivePeriodTest、MasterDataTest |
-| 給与・丸め・履歴・stale | 有。PayrollManagementTest、PhaseFiveOutputTest |
-| 2026/2027所得税・甲乙・扶養・境界/連続性 | 有。PayrollManagementTest、IncomeTaxSourceFetchTest |
-| PDF/ZIP/Excel/PNG・認証 | 有。PhaseFiveOutputTest、PhaseSixAcceptanceTest |
-| 権限 | 有。ただし現行の粗いrole設定が期待値 |
-| React表示補助・monthly state・download | 26 testあり |
-| 実ブラウザD&D、sticky、responsive visual regression | 自動testなし |
-| 大量データ性能、同時編集の実DB負荷 | 専用testなし |
+| 領域                                                | 有無 / 代表test                                                                  |
+| --------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 日跨ぎ・12時境界・深夜・15分・24h未満               | 有。AttendanceTimeServiceTest、BusinessDateServiceTest、AttendanceManagementTest |
+| 店休・休・急休・他店help・同日競合                  | 有。ShiftManagementTest、AttendanceManagementTest                                |
+| 適用期間・在籍・所属・初期import                    | 有。EffectivePeriodTest、MasterDataTest                                          |
+| 給与・丸め・履歴・stale                             | 有。PayrollManagementTest、PhaseFiveOutputTest                                   |
+| 2026/2027所得税・甲乙・扶養・境界/連続性            | 有。PayrollManagementTest、IncomeTaxSourceFetchTest                              |
+| PDF/ZIP/Excel/PNG・認証                             | 有。PhaseFiveOutputTest、PhaseSixAcceptanceTest                                  |
+| 権限                                                | 有。ただし現行の粗いrole設定が期待値                                             |
+| React表示補助・monthly state・download              | 26 testあり                                                                      |
+| 実ブラウザD&D、sticky、responsive visual regression | 自動testなし                                                                     |
+| 大量データ性能、同時編集の実DB負荷                  | 専用testなし                                                                     |
 
 ## 19. Seeder / 初期データ
 
@@ -714,19 +714,19 @@ attendance + histories + payroll snapshots
 
 ### 24.1 既存資産を活かす接続案
 
-| 追加機能 | 既存への接続点 | 新規ドメインの候補 | 注意 |
-|---|---|---|---|
-| 日次売上・客数・客単価 | `stores.id`、営業日概念 | daily_sales、sales_services | 客単価は`net_sales / customer_count`。営業日cutoffを勤怠と揃えるか決定 |
-| 決済別売上 | daily_sales | payment_methods、daily_sales_payments | 現金/カード等の合計が売上と一致する制約、手数料は別expenseか明確化 |
-| 仕入・仕入先 | stores.id | suppliers、purchases、purchase_lines | 購入日、営業日、計上日、支払日を混同しない |
-| 食材/ドリンク原価 | purchases | items/categories、inventories、stocktakes | 正式原価には期首在庫+仕入-期末在庫が必要。仕入だけでは実際原価率にならない |
-| 経費・現金支出 | stores.id | expense_categories、expenses、payments | 支出日と費用計上月、税込/税抜、証憑、支払方法が必要 |
-| 固定費 | stores.id | recurring_expense_rules、expense_allocations | 店舗固定/全社共通、日割/月割、配賦basisをversion管理 |
-| 日次人件費率 | MonthlyAggregationServiceの日別raw | labor_cost_read_model / KPI service | 現行はアルバイト変動費のみ。売上0日の扱いも定義 |
-| 原価率・FL率 | sales + COGS + labor | KPI calculation service/snapshot | 分母は税抜売上か、F/Lの範囲、丸め、確定statusを統一 |
-| 目標差額 | stores.id、対象月 | budgets/targets、target_versions | 売上、F、L、経費ごとの目標と改定履歴 |
-| 月次PL | store/月 | pl_accounts、monthly_pl_snapshots | 管理会計PLと会計ソフトPLのどちらか、発生/現金basis、共通費配賦を確定 |
-| 店舗経営dashboard | SelectedStoreService、既存layout | management_dashboard page、KPI query service | session店舗選択を再利用し、期間queryをURLへ残す |
+| 追加機能               | 既存への接続点                     | 新規ドメインの候補                           | 注意                                                                       |
+| ---------------------- | ---------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
+| 日次売上・客数・客単価 | `stores.id`、営業日概念            | daily_sales、sales_services                  | 客単価は`net_sales / customer_count`。営業日cutoffを勤怠と揃えるか決定     |
+| 決済別売上             | daily_sales                        | payment_methods、daily_sales_payments        | 現金/カード等の合計が売上と一致する制約、手数料は別expenseか明確化         |
+| 仕入・仕入先           | stores.id                          | suppliers、purchases、purchase_lines         | 購入日、営業日、計上日、支払日を混同しない                                 |
+| 食材/ドリンク原価      | purchases                          | items/categories、inventories、stocktakes    | 正式原価には期首在庫+仕入-期末在庫が必要。仕入だけでは実際原価率にならない |
+| 経費・現金支出         | stores.id                          | expense_categories、expenses、payments       | 支出日と費用計上月、税込/税抜、証憑、支払方法が必要                        |
+| 固定費                 | stores.id                          | recurring_expense_rules、expense_allocations | 店舗固定/全社共通、日割/月割、配賦basisをversion管理                       |
+| 日次人件費率           | MonthlyAggregationServiceの日別raw | labor_cost_read_model / KPI service          | 現行はアルバイト変動費のみ。売上0日の扱いも定義                            |
+| 原価率・FL率           | sales + COGS + labor               | KPI calculation service/snapshot             | 分母は税抜売上か、F/Lの範囲、丸め、確定statusを統一                        |
+| 目標差額               | stores.id、対象月                  | budgets/targets、target_versions             | 売上、F、L、経費ごとの目標と改定履歴                                       |
+| 月次PL                 | store/月                           | pl_accounts、monthly_pl_snapshots            | 管理会計PLと会計ソフトPLのどちらか、発生/現金basis、共通費配賦を確定       |
+| 店舗経営dashboard      | SelectedStoreService、既存layout   | management_dashboard page、KPI query service | session店舗選択を再利用し、期間queryをURLへ残す                            |
 
 ### 24.2 追加仕様書を作る前に必要な追加確認事項
 
