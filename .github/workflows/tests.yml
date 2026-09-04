@@ -61,5 +61,20 @@ jobs:
           DB_USERNAME: groovy
           DB_PASSWORD: groovy_password
 
-      - name: Run CI Checks
-        run: composer ci:check
+      - name: Check frontend formatting and lint
+        run: npm run check
+
+      - name: Check frontend types
+        run: npm run types:check
+
+      - name: Run frontend tests
+        run: npm run test:frontend
+
+      - name: Check PHP formatting
+        run: composer lint:check
+
+      - name: Run PHP static analysis
+        run: composer types:check
+
+      - name: Run PHP tests
+        run: php -d memory_limit=512M vendor/bin/phpunit
